@@ -12,7 +12,10 @@ import {
   TxExecutionRequest,
   TxHash,
   TxReceipt,
+  FunctionCall,
+  ContractDao,
 } from '@aztec/types';
+// import { ExecutionResult } from '@aztec/acir-simulator';
 
 import { NoteFilter } from '../notes/note_filter.js';
 import { DeployedContract } from './deployed-contract.js';
@@ -267,5 +270,48 @@ export interface PXE {
    * @returns The latest block synchronized for blocks, and the latest block synched for notes for each public key being tracked.
    */
   getSyncStatus(): Promise<SyncStatus>;
+
+  // STATE CHANNEL ADDITIONS //
+
+  /**
+   * Retrieves the simulation parameters required to run an ACIR simulation.
+   * This includes the contract address, function artifact, portal contract address, and historical tree roots.
+   *
+   * @param execRequest - The transaction request object containing details of the contract call.
+   * @returns An object containing the contract address, function artifact, portal contract address, and historical tree roots.
+   */
+  getSimulationParameters(execRequest: FunctionCall | TxExecutionRequest): Promise<any>;
+
+  /**
+   * Simulate execution of a transaction
+   * 
+   * @param txRequest - transaction to simulate execution for
+   * @return The result of the simulation of the kernel proof
+   */
+  simulate(txRequest: TxExecutionRequest): Promise<any>;
+
+  /**
+   * Simulate an unconstrained transaction on the given contract, without considering constraints set by ACIR.
+   * The simulation parameters are fetched using ContractDataOracle and executed using AcirSimulator.
+   * Returns the simulation result containing the outputs of the unconstrained function.
+   *
+   * @param execRequest - The transaction request object containing the target contract and function data.
+   * @returns The simulation result containing the outputs of the unconstrained function.
+   */
+  simulateUnconstrained(execRequest: FunctionCall): Promise<any>;
+
+  /**
+   * Simulate a transaction, generate a kernel proof, and create a private transaction object.
+   * The function takes in a transaction request and an ECDSA signature. It simulates the transaction,
+   * then generates a kernel proof using the simulation result. Finally, it creates a private
+   * transaction object with the generated proof and public inputs. If a new contract address is provided,
+   * the function will also include the new contract's public functions in the transaction object.
+   *
+   * @param txExecutionRequest - The transaction request to be simulated and proved.
+   * @param signature - The ECDSA signature for the transaction request.
+   * @param newContract - Optional. The address of a new contract to be included in the transaction object.
+   * @returns A private transaction object containing the proof, public inputs, and encrypted logs.
+   */
+  simulateAndProve(txExecutionRequest: TxExecutionRequest, newContract: ContractDao | undefined): Promise<Tx>;
 }
 // docs:end:pxe-interface

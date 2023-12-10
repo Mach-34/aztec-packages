@@ -24,7 +24,10 @@ import {
   TxExecutionRequest,
   TxHash,
   TxReceipt,
+  // FunctionCall,
+  // ContractDao,
 } from '@aztec/types';
+// import { ExecutionResult } from '@aztec/acir-simulator';
 
 export { makeFetch } from '@aztec/foundation/json-rpc/client';
 

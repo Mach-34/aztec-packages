@@ -327,7 +327,7 @@ export class PXEService implements PXE {
     const deployedContractAddress = txRequest.txContext.isContractDeploymentTx ? txRequest.origin : undefined;
     const newContract = deployedContractAddress ? await this.db.getContract(deployedContractAddress) : undefined;
 
-    const tx = await this.#simulateAndProve(txRequest, newContract);
+    const tx = await this.simulateAndProve(txRequest, newContract);
     if (simulatePublic) {
       await this.#simulatePublicCalls(tx);
     }
@@ -349,7 +349,7 @@ export class PXEService implements PXE {
   public async viewTx(functionName: string, args: any[], to: AztecAddress, _from?: AztecAddress) {
     // TODO - Should check if `from` has the permission to call the view function.
     const functionCall = await this.#getFunctionCall(functionName, args, to);
-    const executionResult = await this.#simulateUnconstrained(functionCall);
+    const executionResult = await this.simulateUnconstrained(functionCall);
 
     // TODO - Return typed result based on the function artifact.
     return executionResult;
@@ -454,7 +454,7 @@ export class PXEService implements PXE {
    * @param execRequest - The transaction request object containing details of the contract call.
    * @returns An object containing the contract address, function artifact, portal contract address, and historical tree roots.
    */
-  async #getSimulationParameters(execRequest: FunctionCall | TxExecutionRequest) {
+  public async getSimulationParameters(execRequest: FunctionCall | TxExecutionRequest) {
     const contractAddress = (execRequest as FunctionCall).to ?? (execRequest as TxExecutionRequest).origin;
     const functionArtifact = await this.contractDataOracle.getFunctionArtifact(
       contractAddress,
@@ -476,10 +476,10 @@ export class PXEService implements PXE {
     };
   }
 
-  async #simulate(txRequest: TxExecutionRequest): Promise<ExecutionResult> {
+  public async simulate(txRequest: TxExecutionRequest): Promise<ExecutionResult> {
     // TODO - Pause syncing while simulating.
 
-    const { contractAddress, functionArtifact, portalContract } = await this.#getSimulationParameters(txRequest);
+    const { contractAddress, functionArtifact, portalContract } = await this.getSimulationParameters(txRequest);
 
     this.log('Executing simulator...');
     try {
@@ -502,8 +502,8 @@ export class PXEService implements PXE {
    * @param execRequest - The transaction request object containing the target contract and function data.
    * @returns The simulation result containing the outputs of the unconstrained function.
    */
-  async #simulateUnconstrained(execRequest: FunctionCall) {
-    const { contractAddress, functionArtifact } = await this.#getSimulationParameters(execRequest);
+  public async simulateUnconstrained(execRequest: FunctionCall) {
+    const { contractAddress, functionArtifact } = await this.getSimulationParameters(execRequest);
 
     this.log('Executing unconstrained simulator...');
     try {
@@ -561,11 +561,11 @@ export class PXEService implements PXE {
    * @param newContract - Optional. The address of a new contract to be included in the transaction object.
    * @returns A private transaction object containing the proof, public inputs, and encrypted logs.
    */
-  async #simulateAndProve(txExecutionRequest: TxExecutionRequest, newContract: ContractDao | undefined) {
+  async simulateAndProve(txExecutionRequest: TxExecutionRequest, newContract: ContractDao | undefined) {
     // TODO - Pause syncing while simulating.
 
     // Get values that allow us to reconstruct the block hash
-    const executionResult = await this.#simulate(txExecutionRequest);
+    const executionResult = await this.simulate(txExecutionRequest);
 
     const kernelOracle = new KernelOracle(this.contractDataOracle, this.node);
     const kernelProver = new KernelProver(kernelOracle);
