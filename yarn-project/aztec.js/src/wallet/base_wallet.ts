@@ -18,6 +18,7 @@ import {
   TxExecutionRequest,
   TxHash,
   TxReceipt,
+  ContractDao
 } from '@aztec/types';
 
 import { CompleteAddress } from '../index.js';
@@ -117,4 +118,21 @@ export abstract class BaseWallet implements Wallet {
   addAuthWitness(authWitness: AuthWitness) {
     return this.pxe.addAuthWitness(authWitness);
   }
+  /// state channel ///
+  getSimulationParameters(execRequest: FunctionCall | TxExecutionRequest) {
+    return this.pxe.getSimulationParameters(execRequest);
+  }
+
+  simulate(txRequest: TxExecutionRequest) {
+    return this.pxe.simulate(txRequest);
+  }
+
+  simulateUnconstrained(execRequest: FunctionCall) {
+    return this.pxe.simulateUnconstrained(execRequest);
+  }
+
+  simulateAndProve(txExecutionRequest: TxExecutionRequest, newContract: ContractDao | undefined) {
+    return this.pxe.simulateAndProve(txExecutionRequest, newContract);
+  }
+
 }
