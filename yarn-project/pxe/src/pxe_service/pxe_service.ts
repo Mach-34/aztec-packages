@@ -321,18 +321,15 @@ export class PXEService implements PXE {
     if (txRequest.functionData.isInternal === undefined) {
       throw new Error(`Unspecified internal are not allowed`);
     }
-
     // We get the contract address from origin, since contract deployments are signalled as origin from their own address
     // TODO: Is this ok? Should it be changed to be from ZERO?
     const deployedContractAddress = txRequest.txContext.isContractDeploymentTx ? txRequest.origin : undefined;
     const newContract = deployedContractAddress ? await this.db.getContract(deployedContractAddress) : undefined;
-
     const tx = await this.simulateAndProve(txRequest, newContract);
     if (simulatePublic) {
       await this.#simulatePublicCalls(tx);
     }
     this.log.info(`Executed local simulation for ${await tx.getTxHash()}`);
-
     return tx;
   }
 
@@ -456,7 +453,8 @@ export class PXEService implements PXE {
    */
   public async getSimulationParameters(execRequest: FunctionCall | TxExecutionRequest) {
     this.log("Retrieving simulation parameters for contract's function...");
-    this.log(`Contract address: ${JSON.stringify(execRequest)}`);
+    // this.log(`Contract address: ${JSON.stringify(execRequest)}`);
+    // commented out cuz it says "Do not know how to serialize a bigint" (???)
     const contractAddress = (execRequest as FunctionCall).to ?? (execRequest as TxExecutionRequest).origin;
     const functionArtifact = await this.contractDataOracle.getFunctionArtifact(
       contractAddress,
@@ -467,7 +465,6 @@ export class PXEService implements PXE {
       execRequest.functionData.selector,
     );
     const portalContract = await this.contractDataOracle.getPortalContractAddress(contractAddress);
-
     return {
       contractAddress,
       functionArtifact: {
@@ -480,9 +477,7 @@ export class PXEService implements PXE {
 
   public async simulate(txRequest: TxExecutionRequest): Promise<ExecutionResult> {
     // TODO - Pause syncing while simulating.
-
     const { contractAddress, functionArtifact, portalContract } = await this.getSimulationParameters(txRequest);
-
     this.log('Executing simulator...');
     try {
       const result = await this.simulator.run(txRequest, functionArtifact, contractAddress, portalContract);
@@ -568,16 +563,13 @@ export class PXEService implements PXE {
 
     // Get values that allow us to reconstruct the block hash
     const executionResult = await this.simulate(txExecutionRequest);
-
     const kernelOracle = new KernelOracle(this.contractDataOracle, this.node);
     const kernelProver = new KernelProver(kernelOracle);
     this.log(`Executing kernel prover...`);
     const { proof, publicInputs } = await kernelProver.prove(txExecutionRequest.toTxRequest(), executionResult);
-
     const encryptedLogs = new TxL2Logs(collectEncryptedLogs(executionResult));
     const unencryptedLogs = new TxL2Logs(collectUnencryptedLogs(executionResult));
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(executionResult);
-
     const extendedContractData = newContract
       ? new ExtendedContractData(
           new ContractData(newContract.completeAddress.address, newContract.portalContract),
@@ -586,11 +578,9 @@ export class PXEService implements PXE {
           newContract.completeAddress.publicKey,
         )
       : ExtendedContractData.empty();
-
     // HACK(#1639): Manually patches the ordering of the public call stack
     // TODO(#757): Enforce proper ordering of enqueued public calls
     await this.patchPublicCallStackOrdering(publicInputs, enqueuedPublicFunctions);
-
     return new Tx(publicInputs, proof, encryptedLogs, unencryptedLogs, enqueuedPublicFunctions, [extendedContractData]);
   }
 
