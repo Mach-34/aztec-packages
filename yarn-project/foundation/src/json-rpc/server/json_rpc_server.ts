@@ -134,6 +134,7 @@ export class JsonRpcServer {
       router.post('/', async (ctx: Koa.Context) => {
         const { params = [], jsonrpc, id, method } = ctx.request.body as any;
         // Ignore if not a function
+        console.log("REQUEST: ", ctx.request.body);
         if (
           method === 'constructor' ||
           typeof proto[method] !== 'function' ||

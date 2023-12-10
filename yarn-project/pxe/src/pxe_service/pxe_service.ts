@@ -455,6 +455,8 @@ export class PXEService implements PXE {
    * @returns An object containing the contract address, function artifact, portal contract address, and historical tree roots.
    */
   public async getSimulationParameters(execRequest: FunctionCall | TxExecutionRequest) {
+    this.log("Retrieving simulation parameters for contract's function...");
+    this.log(`Contract address: ${JSON.stringify(execRequest)}`);
     const contractAddress = (execRequest as FunctionCall).to ?? (execRequest as TxExecutionRequest).origin;
     const functionArtifact = await this.contractDataOracle.getFunctionArtifact(
       contractAddress,
