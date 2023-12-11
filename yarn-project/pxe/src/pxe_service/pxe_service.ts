@@ -16,6 +16,7 @@ import {
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   PartialAddress,
   PublicCallRequest,
+  VerificationKey,
 } from '@aztec/circuits.js';
 import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/abis';
 import { encodeArguments } from '@aztec/foundation/abi';
@@ -51,6 +52,9 @@ import {
   getNewContractPublicFunctions,
   isNoirCallStackUnresolved,
   toContractDao,
+  ProofOutput,
+  ProofOutputFinal,
+  OutputNoteData
 } from '@aztec/types';
 
 import { PXEServiceConfig, getPackageInfo } from '../config/index.js';
@@ -667,5 +671,30 @@ export class PXEService implements PXE {
 
   public getKeyStore() {
     return this.keyStore;
+  }
+
+  /// STATE CHANNEL API ///
+  public async proveInit(request: TxExecutionRequest) {
+    const executionResult = await this.simulate(request);
+    const kernelOracle = new KernelOracle(this.contractDataOracle, this.node);
+    const kernelProver = new KernelProver(kernelOracle);
+    this.log(`Executing kernel prover for single init proof...`);
+    const result = await kernelProver.proveInit(request.toTxRequest(), executionResult);
+    this.log(`Successfully executed and proved Kernel init proof iteration`);
+    return result;
+  }
+
+  public async proveInner(
+    previousProof: ProofOutput,
+    previousVK: VerificationKey,
+    executionStack: ExecutionResult[],
+    newNotes: { [commitmentStr: string]: OutputNoteData },
+  ) {
+    const kernelOracle = new KernelOracle(this.contractDataOracle, this.node);
+    const kernelProver = new KernelProver(kernelOracle);
+    this.log(`Executing kernel prover for single inner proof...`);
+    const result = await kernelProver.proveInner(previousProof, previousVK, executionStack, newNotes);
+    this.log(`Successfully executed and proved Kernel inner proof iteration`);
+    return result;
   }
 }

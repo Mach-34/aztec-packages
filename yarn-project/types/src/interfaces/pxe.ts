@@ -1,9 +1,18 @@
-import { AztecAddress, CompleteAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
+import {
+  AztecAddress,
+  CompleteAddress,
+  Fr,
+  GrumpkinPrivateKey,
+  PartialAddress,
+  VerificationKey,
+} from '@aztec/circuits.js';
 import {
   AuthWitness,
+  ContractDao,
   ContractData,
   ExtendedContractData,
   ExtendedNote,
+  FunctionCall,
   GetUnencryptedLogsResponse,
   L2Block,
   L2Tx,
@@ -12,10 +21,10 @@ import {
   TxExecutionRequest,
   TxHash,
   TxReceipt,
-  FunctionCall,
-  ContractDao,
+  ExecutionResult,
+  ProofOutput,
+  OutputNoteData,
 } from '@aztec/types';
-// import { ExecutionResult } from '@aztec/acir-simulator';
 
 import { NoteFilter } from '../notes/note_filter.js';
 import { DeployedContract } from './deployed-contract.js';
@@ -284,7 +293,7 @@ export interface PXE {
 
   /**
    * Simulate execution of a transaction
-   * 
+   *
    * @param txRequest - transaction to simulate execution for
    * @return The result of the simulation of the kernel proof
    */
@@ -313,5 +322,16 @@ export interface PXE {
    * @returns A private transaction object containing the proof, public inputs, and encrypted logs.
    */
   simulateAndProve(txExecutionRequest: TxExecutionRequest, newContract: ContractDao | undefined): Promise<Tx>;
+
+  /** Proves a single init kernel proof iteration */
+  proveInit(request: TxExecutionRequest): Promise<any>;
+
+  /** Proves a single inner step kernel proof iteration */
+  proveInner(
+    previousProof: ProofOutput,
+    previousVK: VerificationKey,
+    executionStack: ExecutionResult[],
+    newNotes: { [commitmentStr: string]: OutputNoteData },
+  ): Promise<any>;
 }
 // docs:end:pxe-interface

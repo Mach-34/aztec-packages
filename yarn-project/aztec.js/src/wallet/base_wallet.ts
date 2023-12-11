@@ -1,6 +1,7 @@
-import { AztecAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
+import { AztecAddress, Fr, GrumpkinPrivateKey, PartialAddress, VerificationKey } from '@aztec/circuits.js';
 import {
   AuthWitness,
+  ContractDao,
   ContractData,
   DeployedContract,
   ExtendedContractData,
@@ -18,7 +19,9 @@ import {
   TxExecutionRequest,
   TxHash,
   TxReceipt,
-  ContractDao
+  ProofOutput,
+  OutputNoteData,
+  ExecutionResult
 } from '@aztec/types';
 
 import { CompleteAddress } from '../index.js';
@@ -135,4 +138,16 @@ export abstract class BaseWallet implements Wallet {
     return this.pxe.simulateAndProve(txExecutionRequest, newContract);
   }
 
+  proveInit(request: TxExecutionRequest) {
+    return this.pxe.proveInit(request);
+  }
+
+  proveInner(
+    previousProof: ProofOutput,
+    previousVK: VerificationKey,
+    executionStack: ExecutionResult[],
+    newNotes: { [commitmentStr: string]: OutputNoteData },
+  ) {
+    return this.pxe.proveInner(previousProof, previousVK, executionStack, newNotes);
+  }
 }

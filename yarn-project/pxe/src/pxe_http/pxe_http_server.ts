@@ -20,7 +20,6 @@ import {
   TxExecutionRequest,
   TxHash,
   TxReceipt,
-  ContractDao
 } from '@aztec/types';
 
 import http from 'http';

@@ -1,4 +1,4 @@
-import { ExecutionResult, NoteAndSlot } from '@aztec/acir-simulator';
+import { ExecutionResult } from '@aztec/acir-simulator';
 import {
   AztecAddress,
   CONTRACT_TREE_HEIGHT,
@@ -29,28 +29,9 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { Tuple, assertLength } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
 
-import { KernelProofCreator, ProofCreator, ProofOutput, ProofOutputFinal } from './proof_creator.js';
+import { KernelProofCreator, ProofCreator } from './proof_creator.js';
 import { ProvingDataOracle } from './proving_data_oracle.js';
-
-/**
- * Represents an output note data object.
- * Contains the contract address, new note data and commitment for the note,
- * resulting from the execution of a transaction in the Aztec network.
- */
-export interface OutputNoteData {
-  /**
-   * The address of the contract the note was created in.
-   */
-  contractAddress: AztecAddress;
-  /**
-   * The encrypted note data for an output note.
-   */
-  data: NoteAndSlot;
-  /**
-   * The unique value representing the note.
-   */
-  commitment: Fr;
-}
+import { ProofOutput, ProofOutputFinal, OutputNoteData } from '@aztec/types';
 
 /**
  * Represents the output data of the Kernel Prover.
@@ -71,6 +52,126 @@ export interface KernelProverOutput extends ProofOutputFinal {
  */
 export class KernelProver {
   constructor(private oracle: ProvingDataOracle, private proofCreator: ProofCreator = new KernelProofCreator()) {}
+
+  /**
+   * Generates a proof of the first i
+   * @param txRequest
+   * @param executionResult
+   * @returns
+   */
+  async proveInit(
+    txRequest: TxRequest,
+    executionResult: ExecutionResult,
+  ): Promise<{
+    proof: ProofOutput;
+    previousVK: VerificationKey;
+    executionStack: ExecutionResult[];
+    newNotes: { [commitmentStr: string]: OutputNoteData };
+  }> {
+    const executionStack = [executionResult];
+    const newNotes: { [commitmentStr: string]: OutputNoteData } = {};
+    let previousVerificationKey = VerificationKey.makeFake();
+
+    let output: ProofOutput = {
+      publicInputs: PrivateKernelPublicInputs.empty(),
+      proof: makeEmptyProof(),
+    };
+
+    /// BUILD PRIVATE CALL DATA FOR CURRENT ITERATION ///
+    const currentExecution = executionStack.pop()!;
+    executionStack.push(...currentExecution.nestedExecutions);
+
+    const privateCallRequests = currentExecution.nestedExecutions.map(result => result.callStackItem.toCallRequest());
+    const publicCallRequests = currentExecution.enqueuedPublicFunctionCalls.map(result => result.toCallRequest());
+
+    const readRequestMembershipWitnesses = currentExecution.readRequestPartialWitnesses;
+    for (let rr = 0; rr < readRequestMembershipWitnesses.length; rr++) {
+      const rrWitness = readRequestMembershipWitnesses[rr];
+      if (!rrWitness.isTransient) {
+        const membershipWitness = await this.oracle.getNoteMembershipWitness(rrWitness.leafIndex.toBigInt());
+        rrWitness.siblingPath = membershipWitness.siblingPath;
+      }
+    }
+    readRequestMembershipWitnesses.push(
+      ...Array(MAX_READ_REQUESTS_PER_CALL - readRequestMembershipWitnesses.length)
+        .fill(0)
+        .map(() => ReadRequestMembershipWitness.empty(BigInt(0))),
+    );
+    const privateCallData = await this.createPrivateCallData(
+      currentExecution,
+      privateCallRequests,
+      publicCallRequests,
+      readRequestMembershipWitnesses,
+    );
+
+    /// PROVE ///
+    const proofInput = new PrivateKernelInputsInit(txRequest, privateCallData);
+    output = await this.proofCreator.createProofInit(proofInput);
+
+    (await this.getNewNotes(currentExecution)).forEach(n => {
+      newNotes[n.commitment.toString()] = n;
+    });
+    previousVerificationKey = privateCallData.vk;
+
+    return { proof: output, previousVK: previousVerificationKey, executionStack, newNotes };
+  }
+
+  async proveInner(
+    previousProof: ProofOutput,
+    previousVK: VerificationKey,
+    executionStack: ExecutionResult[],
+    newNotes: { [commitmentStr: string]: OutputNoteData },
+  ): Promise<{
+    proof: ProofOutput;
+    previousVK: VerificationKey;
+    executionStack: ExecutionResult[];
+    newNotes: { [commitmentStr: string]: OutputNoteData };
+  }> {
+    /// BUILD PRIVATE CALL DATA FOR CURRENT ITERATION ///
+    const currentExecution = executionStack.pop()!;
+    executionStack.push(...currentExecution.nestedExecutions);
+
+    const privateCallRequests = currentExecution.nestedExecutions.map(result => result.callStackItem.toCallRequest());
+    const publicCallRequests = currentExecution.enqueuedPublicFunctionCalls.map(result => result.toCallRequest());
+
+    const readRequestMembershipWitnesses = currentExecution.readRequestPartialWitnesses;
+    for (let rr = 0; rr < readRequestMembershipWitnesses.length; rr++) {
+      const rrWitness = readRequestMembershipWitnesses[rr];
+      if (!rrWitness.isTransient) {
+        const membershipWitness = await this.oracle.getNoteMembershipWitness(rrWitness.leafIndex.toBigInt());
+        rrWitness.siblingPath = membershipWitness.siblingPath;
+      }
+    }
+    readRequestMembershipWitnesses.push(
+      ...Array(MAX_READ_REQUESTS_PER_CALL - readRequestMembershipWitnesses.length)
+        .fill(0)
+        .map(() => ReadRequestMembershipWitness.empty(BigInt(0))),
+    );
+    const privateCallData = await this.createPrivateCallData(
+      currentExecution,
+      privateCallRequests,
+      publicCallRequests,
+      readRequestMembershipWitnesses,
+    );
+    /// BUILD PREVIOUS KERNEL DATA ///
+    const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(previousVK);
+    const previousKernelData = new PreviousKernelData(
+      previousProof.publicInputs,
+      previousProof.proof,
+      previousVK,
+      Number(previousVkMembershipWitness.leafIndex),
+      assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
+    );
+
+    const proofInput = new PrivateKernelInputsInner(previousKernelData, privateCallData);
+    const output = await this.proofCreator.createProofInner(proofInput);
+
+    (await this.getNewNotes(currentExecution)).forEach(n => {
+      newNotes[n.commitment.toString()] = n;
+    });
+
+    return { proof: output, previousVK: privateCallData.vk, executionStack, newNotes };
+  }
 
   /**
    * Generate a proof for a given transaction request and execution result.
@@ -323,3 +424,6 @@ export class KernelProver {
     return hints;
   }
 }
+
+// @todo update references instead of rexporting
+export { OutputNoteData };

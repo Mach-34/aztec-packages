@@ -838,7 +838,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/types@workspace:types"
   dependencies:
-    "@aztec/acir-simulator": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
