@@ -80,10 +80,8 @@ export class KernelProver {
     /// BUILD PRIVATE CALL DATA FOR CURRENT ITERATION ///
     const currentExecution = executionStack.pop()!;
     executionStack.push(...currentExecution.nestedExecutions);
-
     const privateCallRequests = currentExecution.nestedExecutions.map(result => result.callStackItem.toCallRequest());
     const publicCallRequests = currentExecution.enqueuedPublicFunctionCalls.map(result => result.toCallRequest());
-
     const readRequestMembershipWitnesses = currentExecution.readRequestPartialWitnesses;
     for (let rr = 0; rr < readRequestMembershipWitnesses.length; rr++) {
       const rrWitness = readRequestMembershipWitnesses[rr];
@@ -103,11 +101,9 @@ export class KernelProver {
       publicCallRequests,
       readRequestMembershipWitnesses,
     );
-
     /// PROVE ///
     const proofInput = new PrivateKernelInputsInit(txRequest, privateCallData);
     output = await this.proofCreator.createProofInit(proofInput);
-
     (await this.getNewNotes(currentExecution)).forEach(n => {
       newNotes[n.commitment.toString()] = n;
     });

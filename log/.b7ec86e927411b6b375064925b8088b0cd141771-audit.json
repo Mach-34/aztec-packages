@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": false,
+        "amount": 5
+    },
+    "auditLog": "log/.b7ec86e927411b6b375064925b8088b0cd141771-audit.json",
+    "files": [
+        {
+            "date": 1702260521572,
+            "name": "log/aztec-sandbox-2023-12-10.debug.log",
+            "hash": "ca935fbedccbc0531dcabea0d10061858a4824dea5b0d0b3267aa26a9bc9393d"
+        }
+    ],
+    "hashType": "sha256"
+}
