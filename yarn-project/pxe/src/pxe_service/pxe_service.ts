@@ -51,7 +51,6 @@ import {
   TxStatus,
   getNewContractPublicFunctions,
   isNoirCallStackUnresolved,
-  toContractDao,
   ProofOutput,
   ProofOutputFinal,
   OutputNoteData
@@ -59,7 +58,7 @@ import {
 
 import { PXEServiceConfig, getPackageInfo } from '../config/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
-import { Database } from '../database/index.js';
+import { PxeDatabase } from '../database/index.js';
 import { NoteDao } from '../database/note_dao.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
 import { KernelProver } from '../kernel_prover/kernel_prover.js';
@@ -79,7 +78,7 @@ export class PXEService implements PXE {
   constructor(
     private keyStore: KeyStore,
     private node: AztecNode,
-    private db: Database,
+    private db: PxeDatabase,
     private config: PXEServiceConfig,
     logSuffix?: string,
   ) {
@@ -132,7 +131,7 @@ export class PXEService implements PXE {
     const completeAddress = CompleteAddress.fromPrivateKeyAndPartialAddress(privKey, partialAddress);
     const wasAdded = await this.db.addCompleteAddress(completeAddress);
     if (wasAdded) {
-      const pubKey = this.keyStore.addAccount(privKey);
+      const pubKey = await this.keyStore.addAccount(privKey);
       this.synchronizer.addAccount(pubKey, this.keyStore, this.config.l2StartingBlock);
       this.log.info(`Registered account ${completeAddress.address.toString()}`);
       this.log.debug(`Registered account\n ${completeAddress.toReadableString()}`);
@@ -182,7 +181,7 @@ export class PXEService implements PXE {
   }
 
   public async addContracts(contracts: DeployedContract[]) {
-    const contractDaos = contracts.map(c => toContractDao(c.artifact, c.completeAddress, c.portalContract));
+    const contractDaos = contracts.map(c => new ContractDao(c.artifact, c.completeAddress, c.portalContract));
     await Promise.all(contractDaos.map(c => this.db.addContract(c)));
     for (const contract of contractDaos) {
       const portalInfo =

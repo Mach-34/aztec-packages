@@ -71,8 +71,7 @@ template <class Flavor> class ProverInstance_ {
 
     void compute_sorted_list_accumulator(FF);
 
-    void compute_logderivative_inverse(FF, FF)
-        requires IsGoblinFlavor<Flavor>;
+    void compute_logderivative_inverse(FF, FF) requires IsGoblinFlavor<Flavor>;
 
     void compute_grand_product_polynomials(FF, FF);
 
@@ -96,8 +95,7 @@ template <class Flavor> class ProverInstance_ {
 
     void construct_ecc_op_wire_polynomials(auto&);
 
-    void construct_databus_polynomials(Circuit&)
-        requires IsGoblinFlavor<Flavor>;
+    void construct_databus_polynomials(Circuit&) requires IsGoblinFlavor<Flavor>;
 
     void add_table_column_selector_poly_to_proving_key(barretenberg::polynomial& small, const std::string& tag);
 

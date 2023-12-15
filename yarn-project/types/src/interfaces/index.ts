@@ -10,3 +10,4 @@ export * from './nullifier_tree.js';
 export * from './execution_result.js';
 export * from './proof_output.js';
 export * from './output_note_data.js';
+export * from './public_data_tree.js';
