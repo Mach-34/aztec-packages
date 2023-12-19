@@ -24,6 +24,7 @@ import {
   ExecutionResult,
   ProofOutput,
   OutputNoteData,
+  KernelProofData,
 } from '@aztec/types';
 
 import { NoteFilter } from '../notes/note_filter.js';
@@ -295,7 +296,7 @@ export interface PXE {
    * Simulate execution of a transaction
    *
    * @param txRequest - transaction to simulate execution for
-   * @return The result of the simulation of the kernel proof
+   * @returns The result of the simulation of the kernel proof
    */
   simulate(txRequest: TxExecutionRequest): Promise<any>;
 
@@ -324,14 +325,9 @@ export interface PXE {
   simulateAndProve(txExecutionRequest: TxExecutionRequest, newContract: ContractDao | undefined): Promise<Tx>;
 
   /** Proves a single init kernel proof iteration */
-  proveInit(request: TxExecutionRequest): Promise<any>;
+  proveInit(request: TxExecutionRequest): Promise<KernelProofData>;
 
   /** Proves a single inner step kernel proof iteration */
-  proveInner(
-    previousProof: ProofOutput,
-    previousVK: VerificationKey,
-    executionStack: ExecutionResult[],
-    newNotes: { [commitmentStr: string]: OutputNoteData },
-  ): Promise<any>;
+  proveInner(input: KernelProofData): Promise<KernelProofData>;
 }
 // docs:end:pxe-interface

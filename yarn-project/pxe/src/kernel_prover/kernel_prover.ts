@@ -31,7 +31,7 @@ import { pushTestData } from '@aztec/foundation/testing';
 
 import { KernelProofCreator, ProofCreator } from './proof_creator.js';
 import { ProvingDataOracle } from './proving_data_oracle.js';
-import { ProofOutput, ProofOutputFinal, OutputNoteData } from '@aztec/types';
+import { ProofOutput, ProofOutputFinal, OutputNoteData, KernelProofData } from '@aztec/types';
 
 /**
  * Represents the output data of the Kernel Prover.
@@ -55,27 +55,16 @@ export class KernelProver {
 
   /**
    * Generates a proof of the first i
-   * @param txRequest
-   * @param executionResult
-   * @returns
+   * @param txRequest - 
+   * @param executionResult - 
+   * @returns - the kernel proof
    */
   async proveInit(
     txRequest: TxRequest,
     executionResult: ExecutionResult,
-  ): Promise<{
-    proof: ProofOutput;
-    previousVK: VerificationKey;
-    executionStack: ExecutionResult[];
-    newNotes: { [commitmentStr: string]: OutputNoteData };
-  }> {
+  ): Promise<KernelProofData> {
     const executionStack = [executionResult];
     const newNotes: { [commitmentStr: string]: OutputNoteData } = {};
-    let previousVerificationKey = VerificationKey.makeFake();
-
-    let output: ProofOutput = {
-      publicInputs: PrivateKernelPublicInputs.empty(),
-      proof: makeEmptyProof(),
-    };
 
     /// BUILD PRIVATE CALL DATA FOR CURRENT ITERATION ///
     const currentExecution = executionStack.pop()!;
@@ -103,28 +92,23 @@ export class KernelProver {
     );
     /// PROVE ///
     const proofInput = new PrivateKernelInputsInit(txRequest, privateCallData);
-    output = await this.proofCreator.createProofInit(proofInput);
+    const output = await this.proofCreator.createProofInit(proofInput);
     (await this.getNewNotes(currentExecution)).forEach(n => {
       newNotes[n.commitment.toString()] = n;
     });
-    previousVerificationKey = privateCallData.vk;
 
-    return { proof: output, previousVK: previousVerificationKey, executionStack, newNotes };
+    return new KernelProofData(output, privateCallData.vk, executionStack, newNotes);
   }
 
-  async proveInner(
-    previousProof: ProofOutput,
-    previousVK: VerificationKey,
-    executionStack: ExecutionResult[],
-    newNotes: { [commitmentStr: string]: OutputNoteData },
-  ): Promise<{
-    proof: ProofOutput;
-    previousVK: VerificationKey;
-    executionStack: ExecutionResult[];
-    newNotes: { [commitmentStr: string]: OutputNoteData };
-  }> {
+  /**
+   * Generates an interstitial kernel proof from a previous iteration in the stack
+   * @param input - previous kernel circuit iteration info
+   * @returns - output of executed kernel circuit
+   */
+  async proveInner(input: KernelProofData): Promise<KernelProofData> {
     /// BUILD PRIVATE CALL DATA FOR CURRENT ITERATION ///
-    const currentExecution = executionStack.pop()!;
+    const { proof, verificationKey, executionStack, newNotes } = input;
+    const currentExecution = input.executionStack.pop()!;
     executionStack.push(...currentExecution.nestedExecutions);
 
     const privateCallRequests = currentExecution.nestedExecutions.map(result => result.callStackItem.toCallRequest());
@@ -150,11 +134,11 @@ export class KernelProver {
       readRequestMembershipWitnesses,
     );
     /// BUILD PREVIOUS KERNEL DATA ///
-    const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(previousVK);
+    const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(verificationKey);
     const previousKernelData = new PreviousKernelData(
-      previousProof.publicInputs,
-      previousProof.proof,
-      previousVK,
+      proof.publicInputs,
+      proof.proof,
+      verificationKey,
       Number(previousVkMembershipWitness.leafIndex),
       assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
     );
@@ -166,7 +150,7 @@ export class KernelProver {
       newNotes[n.commitment.toString()] = n;
     });
 
-    return { proof: output, previousVK: privateCallData.vk, executionStack, newNotes };
+    return new KernelProofData(output, privateCallData.vk, executionStack, newNotes);
   }
 
   /**

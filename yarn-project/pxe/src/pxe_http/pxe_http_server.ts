@@ -1,4 +1,4 @@
-import { FunctionSelector } from '@aztec/circuits.js';
+import { FunctionSelector, KernelCircuitPublicInputs, Proof, VerificationKey } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
@@ -20,6 +20,7 @@ import {
   TxExecutionRequest,
   TxHash,
   TxReceipt,
+  KernelProofData
 } from '@aztec/types';
 
 import http from 'http';
@@ -53,8 +54,16 @@ export function createPXERpcServer(pxeService: PXE): JsonRpcServer {
       L2Block,
       L2Tx,
       LogId,
+      Proof,
+      VerificationKey,
     },
-    { Tx, TxReceipt, L2BlockL2Logs },
+    {
+      Tx,
+      TxReceipt,
+      L2BlockL2Logs,
+      KernelCircuitPublicInputs,
+      KernelProofData
+    },
     false,
     ['start', 'stop'],
   );

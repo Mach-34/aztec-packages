@@ -139,6 +139,23 @@ export class VerificationKey {
   }
 
   /**
+   * Serialize as a hex string.
+   * @returns The hex string.
+   */
+  public toString() {
+    return this.toBuffer().toString('hex');
+  }
+
+  /**
+   * Deserializes from a hex string.
+   * @param data - The hex string.
+   * @returns The VerificationKey.
+   */
+  public static fromString(data: string): VerificationKey {
+    return VerificationKey.fromBuffer(Buffer.from(data, 'hex'));
+  }
+
+  /**
    * Builds a fake verification key that should be accepted by circuits.
    * @returns A fake verification key.
    */

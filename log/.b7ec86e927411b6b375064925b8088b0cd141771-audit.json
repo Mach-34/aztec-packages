@@ -9,6 +9,21 @@
             "date": 1702260521572,
             "name": "log/aztec-sandbox-2023-12-10.debug.log",
             "hash": "ca935fbedccbc0531dcabea0d10061858a4824dea5b0d0b3267aa26a9bc9393d"
+        },
+        {
+            "date": 1702612556468,
+            "name": "log/aztec-sandbox-2023-12-14.debug.log",
+            "hash": "dcbd779e3dd2b38d54bd09d73ee2853b47f26880fa3ef6be3b3039b1c807f922"
+        },
+        {
+            "date": 1702688252492,
+            "name": "log/aztec-sandbox-2023-12-15.debug.log",
+            "hash": "9a457ac8aa755ca6ae5ffeeb8fb31f18f8f6f2d3b45e6bfd1612bf5d7651b0d8"
+        },
+        {
+            "date": 1702867376921,
+            "name": "log/aztec-sandbox-2023-12-17.debug.log",
+            "hash": "a646ed87289113c18bd8a8174109fc1cb590b1a1df40ccf262ebc9085dfff113"
         }
     ],
     "hashType": "sha256"

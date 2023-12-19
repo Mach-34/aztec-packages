@@ -19,9 +19,7 @@ import {
   TxExecutionRequest,
   TxHash,
   TxReceipt,
-  ProofOutput,
-  OutputNoteData,
-  ExecutionResult
+  KernelProofData
 } from '@aztec/types';
 
 import { CompleteAddress } from '../index.js';
@@ -138,16 +136,11 @@ export abstract class BaseWallet implements Wallet {
     return this.pxe.simulateAndProve(txExecutionRequest, newContract);
   }
 
-  proveInit(request: TxExecutionRequest) {
+  proveInit(request: TxExecutionRequest): Promise<KernelProofData> {
     return this.pxe.proveInit(request);
   }
 
-  proveInner(
-    previousProof: ProofOutput,
-    previousVK: VerificationKey,
-    executionStack: ExecutionResult[],
-    newNotes: { [commitmentStr: string]: OutputNoteData },
-  ) {
-    return this.pxe.proveInner(previousProof, previousVK, executionStack, newNotes);
+  proveInner(input: KernelProofData): Promise<KernelProofData> {
+    return this.pxe.proveInner(input);
   }
 }

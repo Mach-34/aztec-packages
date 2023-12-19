@@ -51,9 +51,7 @@ import {
   TxStatus,
   getNewContractPublicFunctions,
   isNoirCallStackUnresolved,
-  ProofOutput,
-  ProofOutputFinal,
-  OutputNoteData
+  KernelProofData
 } from '@aztec/types';
 
 import { PXEServiceConfig, getPackageInfo } from '../config/index.js';
@@ -673,26 +671,25 @@ export class PXEService implements PXE {
   }
 
   /// STATE CHANNEL API ///
-  public async proveInit(request: TxExecutionRequest) {
+  public async proveInit(request: TxExecutionRequest): Promise<KernelProofData> {
     const executionResult = await this.simulate(request);
     const kernelOracle = new KernelOracle(this.contractDataOracle, this.node);
     const kernelProver = new KernelProver(kernelOracle);
     this.log(`Executing kernel prover for single init proof...`);
     const result = await kernelProver.proveInit(request.toTxRequest(), executionResult);
+    // console.log("Execution Result result: ", result.proof);
+    // console.log("Execution Result result: ", result.verificationKey);
+    // console.log("Execution Result result: ", result.executionStack);
+    // console.log("New notes result: ", result.newNotes);
     this.log(`Successfully executed and proved Kernel init proof iteration`);
     return result;
   }
 
-  public async proveInner(
-    previousProof: ProofOutput,
-    previousVK: VerificationKey,
-    executionStack: ExecutionResult[],
-    newNotes: { [commitmentStr: string]: OutputNoteData },
-  ) {
+  public async proveInner(input: KernelProofData): Promise<KernelProofData> {
     const kernelOracle = new KernelOracle(this.contractDataOracle, this.node);
     const kernelProver = new KernelProver(kernelOracle);
     this.log(`Executing kernel prover for single inner proof...`);
-    const result = await kernelProver.proveInner(previousProof, previousVK, executionStack, newNotes);
+    const result = await kernelProver.proveInner(input);
     this.log(`Successfully executed and proved Kernel inner proof iteration`);
     return result;
   }

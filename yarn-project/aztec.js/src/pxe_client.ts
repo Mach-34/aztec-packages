@@ -6,6 +6,9 @@ import {
   FunctionSelector,
   GrumpkinScalar,
   Point,
+  KernelCircuitPublicInputs,
+  Proof,
+  VerificationKey,
 } from '@aztec/circuits.js';
 import { createJsonRpcClient, makeFetch } from '@aztec/foundation/json-rpc/client';
 import {
@@ -23,8 +26,8 @@ import {
   Tx,
   TxExecutionRequest,
   TxHash,
-  TxReceipt, // FunctionCall,
-  // ContractDao,
+  TxReceipt,
+  KernelProofData
 } from '@aztec/types';
 
 // import { ExecutionResult } from '@aztec/acir-simulator';
@@ -59,8 +62,16 @@ export const createPXEClient = (url: string, fetch = makeFetch([1, 2, 3], true))
       L2Tx,
       LogId,
       L2Block,
+      Proof,
+      VerificationKey,
     },
-    { Tx, TxReceipt, L2BlockL2Logs },
+    {
+      Tx,
+      TxReceipt,
+      L2BlockL2Logs,
+      KernelCircuitPublicInputs,
+      KernelProofData
+    },
     false,
     fetch,
   );

@@ -11,3 +11,4 @@ export * from './execution_result.js';
 export * from './proof_output.js';
 export * from './output_note_data.js';
 export * from './public_data_tree.js';
+export * from './kernel_proof_data.js';

@@ -41,6 +41,31 @@ export class KernelCircuitPublicInputs {
     );
   }
 
+  /**
+   * Convert a KernelCircuitPublicInputs class object to a plain JSON object.
+   * @returns A plain object with KernelCircuitPublicInputs properties, serialized into buffers.
+   */
+  public toJSON() {
+    return {
+      end: this.end.toBuffer(),
+      constants: this.constants.toBuffer(),
+      isPrivate: this.isPrivate,
+    };
+  }
+
+  /**
+   * Convert a plain JSON object to a KernelCircuitsPublicInputs class object.
+   * @param obj - A plain KernelCircuitsPublicInputs JSON object with end and constants as serialized buffers
+   * @returns A KernelCircuitsPublicInputs class object.
+   */
+  public static fromJSON(obj: any) {
+    return new KernelCircuitPublicInputs(
+      CombinedAccumulatedData.fromBuffer(obj.end),
+      CombinedConstantData.fromBuffer(obj.constants),
+      obj.isPrivate,
+    );
+  }
+
   static empty() {
     return new KernelCircuitPublicInputs(CombinedAccumulatedData.empty(), CombinedConstantData.empty(), true);
   }
