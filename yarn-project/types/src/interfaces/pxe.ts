@@ -1,37 +1,19 @@
-import {
-  AztecAddress,
-  CompleteAddress,
-  Fr,
-  GrumpkinPrivateKey,
-  PartialAddress,
-  VerificationKey,
-} from '@aztec/circuits.js';
-import {
-  AuthWitness,
-  ContractDao,
-  ContractData,
-  ExtendedContractData,
-  ExtendedNote,
-  FunctionCall,
-  GetUnencryptedLogsResponse,
-  L2Block,
-  L2Tx,
-  LogFilter,
-  Tx,
-  TxExecutionRequest,
-  TxHash,
-  TxReceipt,
-  ExecutionResult,
-  ProofOutput,
-  OutputNoteData,
-  KernelProofData,
-} from '@aztec/types';
-
+import { AztecAddress, CompleteAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
+import { AuthWitness } from '../auth_witness.js';
+import { ContractData, ExtendedContractData } from '../contract_data.js';
+import { L2Block } from '../l2_block.js';
+import { L2Tx } from '../l2_tx.js';
+import { GetUnencryptedLogsResponse, LogFilter } from '../logs/index.js';
+import { ExtendedNote } from '../notes/index.js';
 import { NoteFilter } from '../notes/note_filter.js';
+import { Tx, TxHash, TxReceipt } from '../tx/index.js';
+import { TxExecutionRequest } from '../tx_execution_request.js';
 import { DeployedContract } from './deployed-contract.js';
 import { NodeInfo } from './node-info.js';
 import { SyncStatus } from './sync-status.js';
-
+import { KernelProofData } from './kernel_proof_data.js';
+import { FunctionCall } from '../function_call.js';
+import { ContractDao } from '../contract_dao.js';
 // docs:start:pxe-interface
 /**
  * Private eXecution Environment (PXE) runs locally for each user, providing functionality for all the operations

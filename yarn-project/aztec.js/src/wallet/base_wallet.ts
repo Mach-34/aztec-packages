@@ -1,4 +1,4 @@
-import { AztecAddress, Fr, GrumpkinPrivateKey, PartialAddress, VerificationKey } from '@aztec/circuits.js';
+import { AztecAddress, CompleteAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
 import {
   AuthWitness,
   ContractDao,
@@ -22,8 +22,7 @@ import {
   KernelProofData
 } from '@aztec/types';
 
-import { CompleteAddress } from '../index.js';
-import { Wallet } from './index.js';
+import { Wallet } from '../account/wallet.js';
 
 /**
  * A base class for Wallet implementations

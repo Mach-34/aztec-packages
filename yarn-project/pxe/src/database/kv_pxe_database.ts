@@ -1,5 +1,5 @@
 import { AztecAddress, BlockHeader, CompleteAddress } from '@aztec/circuits.js';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { AztecArray, AztecKVStore, AztecMap, AztecMultiMap, AztecSingleton } from '@aztec/kv-store';
 import { ContractDao, MerkleTreeId, NoteFilter, PublicKey } from '@aztec/types';
 
@@ -7,18 +7,20 @@ import { NoteDao } from './note_dao.js';
 import { PxeDatabase } from './pxe_database.js';
 
 /** Serialized structure of a block header */
-type SerializedBlockHeader = {
+type SynchronizedBlock = {
   /** The tree roots when the block was created */
   roots: Record<MerkleTreeId, string>;
   /** The hash of the global variables */
   globalVariablesHash: string;
+  /** The block number */
+  blockNumber: number;
 };
 
 /**
  * A PXE database backed by LMDB.
  */
 export class KVPxeDatabase implements PxeDatabase {
-  #blockHeader: AztecSingleton<SerializedBlockHeader>;
+  #synchronizedBlock: AztecSingleton<SynchronizedBlock>;
   #addresses: AztecArray<Buffer>;
   #addressIndex: AztecMap<string, number>;
   #authWitnesses: AztecMap<string, Buffer[]>;
@@ -30,6 +32,7 @@ export class KVPxeDatabase implements PxeDatabase {
   #notesByStorageSlot: AztecMultiMap<string, number>;
   #notesByTxHash: AztecMultiMap<string, number>;
   #notesByOwner: AztecMultiMap<string, number>;
+  #syncedBlockPerPublicKey: AztecMap<string, number>;
   #db: AztecKVStore;
 
   constructor(db: AztecKVStore) {
@@ -40,8 +43,10 @@ export class KVPxeDatabase implements PxeDatabase {
 
     this.#authWitnesses = db.createMap('auth_witnesses');
     this.#capsules = db.createArray('capsules');
-    this.#blockHeader = db.createSingleton('block_header');
     this.#contracts = db.createMap('contracts');
+
+    this.#synchronizedBlock = db.createSingleton('block_header');
+    this.#syncedBlockPerPublicKey = db.createMap('synced_block_per_public_key');
 
     this.#notes = db.createArray('notes');
     this.#nullifiedNotes = db.createMap('nullified_notes');
@@ -173,7 +178,7 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   getTreeRoots(): Record<MerkleTreeId, Fr> {
-    const roots = this.#blockHeader.get()?.roots;
+    const roots = this.#synchronizedBlock.get()?.roots;
     if (!roots) {
       throw new Error(`Tree roots not set`);
     }
@@ -181,29 +186,34 @@ export class KVPxeDatabase implements PxeDatabase {
     return {
       [MerkleTreeId.ARCHIVE]: Fr.fromString(roots[MerkleTreeId.ARCHIVE]),
       [MerkleTreeId.CONTRACT_TREE]: Fr.fromString(roots[MerkleTreeId.CONTRACT_TREE].toString()),
-      [MerkleTreeId.L1_TO_L2_MESSAGES_TREE]: Fr.fromString(roots[MerkleTreeId.L1_TO_L2_MESSAGES_TREE].toString()),
+      [MerkleTreeId.L1_TO_L2_MESSAGE_TREE]: Fr.fromString(roots[MerkleTreeId.L1_TO_L2_MESSAGE_TREE].toString()),
       [MerkleTreeId.NOTE_HASH_TREE]: Fr.fromString(roots[MerkleTreeId.NOTE_HASH_TREE].toString()),
       [MerkleTreeId.PUBLIC_DATA_TREE]: Fr.fromString(roots[MerkleTreeId.PUBLIC_DATA_TREE].toString()),
       [MerkleTreeId.NULLIFIER_TREE]: Fr.fromString(roots[MerkleTreeId.NULLIFIER_TREE].toString()),
     };
   }
 
-  async setBlockHeader(blockHeader: BlockHeader): Promise<void> {
-    await this.#blockHeader.set({
+  async setBlockData(blockNumber: number, blockHeader: BlockHeader): Promise<void> {
+    await this.#synchronizedBlock.set({
+      blockNumber,
       globalVariablesHash: blockHeader.globalVariablesHash.toString(),
       roots: {
         [MerkleTreeId.NOTE_HASH_TREE]: blockHeader.noteHashTreeRoot.toString(),
         [MerkleTreeId.NULLIFIER_TREE]: blockHeader.nullifierTreeRoot.toString(),
         [MerkleTreeId.CONTRACT_TREE]: blockHeader.contractTreeRoot.toString(),
-        [MerkleTreeId.L1_TO_L2_MESSAGES_TREE]: blockHeader.l1ToL2MessagesTreeRoot.toString(),
+        [MerkleTreeId.L1_TO_L2_MESSAGE_TREE]: blockHeader.l1ToL2MessageTreeRoot.toString(),
         [MerkleTreeId.ARCHIVE]: blockHeader.archiveRoot.toString(),
         [MerkleTreeId.PUBLIC_DATA_TREE]: blockHeader.publicDataTreeRoot.toString(),
       },
     });
   }
 
+  getBlockNumber(): number | undefined {
+    return this.#synchronizedBlock.get()?.blockNumber;
+  }
+
   getBlockHeader(): BlockHeader {
-    const value = this.#blockHeader.get();
+    const value = this.#synchronizedBlock.get();
     if (!value) {
       throw new Error(`Block header not set`);
     }
@@ -212,7 +222,7 @@ export class KVPxeDatabase implements PxeDatabase {
       Fr.fromString(value.roots[MerkleTreeId.NOTE_HASH_TREE]),
       Fr.fromString(value.roots[MerkleTreeId.NULLIFIER_TREE]),
       Fr.fromString(value.roots[MerkleTreeId.CONTRACT_TREE]),
-      Fr.fromString(value.roots[MerkleTreeId.L1_TO_L2_MESSAGES_TREE]),
+      Fr.fromString(value.roots[MerkleTreeId.L1_TO_L2_MESSAGE_TREE]),
       Fr.fromString(value.roots[MerkleTreeId.ARCHIVE]),
       Fr.ZERO, // todo: private kernel vk tree root
       Fr.fromString(value.roots[MerkleTreeId.PUBLIC_DATA_TREE]),
@@ -259,6 +269,14 @@ export class KVPxeDatabase implements PxeDatabase {
 
   getCompleteAddresses(): Promise<CompleteAddress[]> {
     return Promise.resolve(Array.from(this.#addresses).map(v => CompleteAddress.fromBuffer(v)));
+  }
+
+  getSynchedBlockNumberForPublicKey(publicKey: Point): number | undefined {
+    return this.#syncedBlockPerPublicKey.get(publicKey.toString());
+  }
+
+  setSynchedBlockNumberForPublicKey(publicKey: Point, blockNumber: number): Promise<boolean> {
+    return this.#syncedBlockPerPublicKey.set(publicKey.toString(), blockNumber);
   }
 
   estimateSize(): number {
