@@ -4,9 +4,9 @@
 #include <algorithm>
 
 template <typename T>
-concept IsField = std::same_as<T, barretenberg::fr> /* || std::same_as<T, grumpkin::fr> */;
+concept IsField = std::same_as<T, bb::fr> /* || std::same_as<T, grumpkin::fr> */;
 
-namespace proof_system {
+namespace bb {
 
 /**
  * @brief A type to optionally extract a view of a relation parameter in a relation.
@@ -22,14 +22,18 @@ template <typename Params, typename View>
 using GetParameterView = std::conditional_t<IsField<typename Params::DataType>, typename Params::DataType, View>;
 
 template <typename T, size_t subrelation_idx>
-concept HasSubrelationLinearlyIndependentMember = requires(T) {
-                                                      {
-                                                          std::get<subrelation_idx>(T::SUBRELATION_LINEARLY_INDEPENDENT)
-                                                          } -> std::convertible_to<bool>;
-                                                  };
+concept HasSubrelationLinearlyIndependentMember = requires(T)
+{
+    {
+        std::get<subrelation_idx>(T::SUBRELATION_LINEARLY_INDEPENDENT)
+        } -> std::convertible_to<bool>;
+};
 
 template <typename T>
-concept HasParameterLengthAdjustmentsMember = requires { T::TOTAL_LENGTH_ADJUSTMENTS; };
+concept HasParameterLengthAdjustmentsMember = requires
+{
+    T::TOTAL_LENGTH_ADJUSTMENTS;
+};
 
 /**
  * @brief Check whether a given subrelation is linearly independent from the other subrelations.
@@ -143,4 +147,4 @@ template <typename RelationImpl> class Relation : public RelationImpl {
     using UnivariateAccumulator0 = std::tuple_element_t<0, SumcheckTupleOfUnivariatesOverSubrelations>;
     using ValueAccumulator0 = std::tuple_element_t<0, SumcheckArrayOfValuesOverSubrelations>;
 };
-} // namespace proof_system
+} // namespace bb

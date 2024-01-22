@@ -27,8 +27,8 @@ FastRandom VarianceRNG(0);
  */
 template <typename Builder> class BoolFuzzBase {
   private:
-    typedef proof_system::plonk::stdlib::bool_t<Builder> bool_t;
-    typedef proof_system::plonk::stdlib::witness_t<Builder> witness_t;
+    typedef bb::stdlib::bool_t<Builder> bool_t;
+    typedef bb::stdlib::witness_t<Builder> witness_t;
 
   public:
     /**
@@ -72,9 +72,7 @@ template <typename Builder> class BoolFuzzBase {
          * @param rng PRNG used
          * @return A random instruction
          */
-        template <typename T>
-        inline static Instruction generateRandom(T& rng)
-            requires SimpleRng<T>
+        template <typename T> inline static Instruction generateRandom(T& rng) requires SimpleRng<T>
         {
             // Choose which instruction we are going to generate
             OPCODE instruction_opcode = static_cast<OPCODE>(rng.next() % (OPCODE::_LAST));
@@ -131,8 +129,9 @@ template <typename Builder> class BoolFuzzBase {
          * @return Mutated instruction
          */
         template <typename T>
-        inline static Instruction mutateInstruction(Instruction instruction, T& rng, HavocSettings& havoc_config)
-            requires SimpleRng<T>
+        inline static Instruction mutateInstruction(Instruction instruction,
+                                                    T& rng,
+                                                    HavocSettings& havoc_config) requires SimpleRng<T>
         {
             (void)rng;
             (void)havoc_config;
@@ -801,7 +800,7 @@ extern "C" int LLVMFuzzerInitialize(int* argc, char*** argv)
  */
 extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* Data, size_t Size, size_t MaxSize, unsigned int Seed)
 {
-    using FuzzerClass = BoolFuzzBase<proof_system::StandardCircuitBuilder>;
+    using FuzzerClass = BoolFuzzBase<bb::StandardCircuitBuilder>;
     auto fast_random = FastRandom(Seed);
     auto size_occupied = ArithmeticFuzzHelper<FuzzerClass>::MutateInstructionBuffer(Data, Size, MaxSize, fast_random);
     if ((fast_random.next() % 200) < fuzzer_havoc_settings.GEN_LLVM_POST_MUTATION_PROB) {
@@ -822,7 +821,7 @@ extern "C" size_t LLVMFuzzerCustomCrossOver(const uint8_t* Data1,
                                             size_t MaxOutSize,
                                             unsigned int Seed)
 {
-    using FuzzerClass = BoolFuzzBase<proof_system::StandardCircuitBuilder>;
+    using FuzzerClass = BoolFuzzBase<bb::StandardCircuitBuilder>;
     auto fast_random = FastRandom(Seed);
     auto vecA = ArithmeticFuzzHelper<FuzzerClass>::parseDataIntoInstructions(Data1, Size1);
     auto vecB = ArithmeticFuzzHelper<FuzzerClass>::parseDataIntoInstructions(Data2, Size2);

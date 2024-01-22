@@ -9,7 +9,7 @@
 // the input should fail
 bool circuit_should_fail = false;
 
-using fr = barretenberg::fr;
+using fr = bb::fr;
 #define HAVOC_TESTING
 
 #include "barretenberg/common/fuzzer.hpp"
@@ -110,11 +110,11 @@ FastRandom VarianceRNG(0);
  */
 template <typename Builder> class SafeUintFuzzBase {
   private:
-    typedef proof_system::plonk::stdlib::bool_t<Builder> bool_t;
-    typedef proof_system::plonk::stdlib::field_t<Builder> field_t;
-    typedef proof_system::plonk::stdlib::safe_uint_t<Builder> suint_t;
-    typedef proof_system::plonk::stdlib::witness_t<Builder> witness_t;
-    typedef proof_system::plonk::stdlib::public_witness_t<Builder> public_witness_t;
+    typedef bb::stdlib::bool_t<Builder> bool_t;
+    typedef bb::stdlib::field_t<Builder> field_t;
+    typedef bb::stdlib::safe_uint_t<Builder> suint_t;
+    typedef bb::stdlib::witness_t<Builder> witness_t;
+    typedef bb::stdlib::public_witness_t<Builder> public_witness_t;
 
   public:
     /**
@@ -189,9 +189,7 @@ template <typename Builder> class SafeUintFuzzBase {
          * @param rng PRNG used
          * @return A random instruction
          */
-        template <typename T>
-        inline static Instruction generateRandom(T& rng)
-            requires SimpleRng<T>
+        template <typename T> inline static Instruction generateRandom(T& rng) requires SimpleRng<T>
         {
             // Choose which instruction we are going to generate
             OPCODE instruction_opcode = static_cast<OPCODE>(rng.next() % (OPCODE::_LAST));
@@ -286,8 +284,7 @@ template <typename Builder> class SafeUintFuzzBase {
          * @return Mutated element
          */
         template <typename T>
-        inline static fr mutateFieldElement(fr e, T& rng, HavocSettings& havoc_config)
-            requires SimpleRng<T>
+        inline static fr mutateFieldElement(fr e, T& rng, HavocSettings& havoc_config) requires SimpleRng<T>
         {
             // With a certain probability, we apply changes to the Montgomery form, rather than the plain form. This has
             // merit, since the computation is performed in montgomery form and comparisons are often performed in it,
@@ -380,8 +377,9 @@ template <typename Builder> class SafeUintFuzzBase {
          * @return Mutated instruction
          */
         template <typename T>
-        inline static Instruction mutateInstruction(Instruction instruction, T& rng, HavocSettings& havoc_config)
-            requires SimpleRng<T>
+        inline static Instruction mutateInstruction(Instruction instruction,
+                                                    T& rng,
+                                                    HavocSettings& havoc_config) requires SimpleRng<T>
         {
 #define PUT_RANDOM_BYTE_IF_LUCKY(variable)                                                                             \
     if (rng.next() & 1) {                                                                                              \
@@ -1420,7 +1418,7 @@ extern "C" int LLVMFuzzerInitialize(int* argc, char*** argv)
  */
 extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* Data, size_t Size, size_t MaxSize, unsigned int Seed)
 {
-    using FuzzerClass = SafeUintFuzzBase<proof_system::StandardCircuitBuilder>;
+    using FuzzerClass = SafeUintFuzzBase<bb::StandardCircuitBuilder>;
     auto fast_random = FastRandom(Seed);
     auto size_occupied = ArithmeticFuzzHelper<FuzzerClass>::MutateInstructionBuffer(Data, Size, MaxSize, fast_random);
     if ((fast_random.next() % 200) < fuzzer_havoc_settings.GEN_LLVM_POST_MUTATION_PROB) {
@@ -1441,7 +1439,7 @@ extern "C" size_t LLVMFuzzerCustomCrossOver(const uint8_t* Data1,
                                             size_t MaxOutSize,
                                             unsigned int Seed)
 {
-    using FuzzerClass = SafeUintFuzzBase<proof_system::StandardCircuitBuilder>;
+    using FuzzerClass = SafeUintFuzzBase<bb::StandardCircuitBuilder>;
     auto fast_random = FastRandom(Seed);
     auto vecA = ArithmeticFuzzHelper<FuzzerClass>::parseDataIntoInstructions(Data1, Size1);
     auto vecB = ArithmeticFuzzHelper<FuzzerClass>::parseDataIntoInstructions(Data2, Size2);

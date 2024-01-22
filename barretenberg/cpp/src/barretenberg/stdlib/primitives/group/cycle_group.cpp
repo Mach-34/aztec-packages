@@ -5,7 +5,7 @@
 #include "./cycle_group.hpp"
 #include "barretenberg/proof_system/plookup_tables/types.hpp"
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
-namespace proof_system::plonk::stdlib {
+namespace bb::stdlib {
 
 template <typename Composer>
 cycle_group<Composer>::cycle_group(Composer* _context)
@@ -171,8 +171,7 @@ template <typename Composer> void cycle_group<Composer>::validate_is_on_curve() 
  * @return cycle_group<Composer>
  */
 template <typename Composer>
-cycle_group<Composer> cycle_group<Composer>::dbl() const
-    requires IsNotUltraArithmetic<Composer>
+cycle_group<Composer> cycle_group<Composer>::dbl() const requires IsNotUltraArithmetic<Composer>
 {
     auto modified_y = field_t::conditional_assign(is_point_at_infinity(), 1, y);
     auto lambda = (x * x * 3) / (modified_y + modified_y);
@@ -188,8 +187,7 @@ cycle_group<Composer> cycle_group<Composer>::dbl() const
  * @return cycle_group<Composer>
  */
 template <typename Composer>
-cycle_group<Composer> cycle_group<Composer>::dbl() const
-    requires IsUltraArithmetic<Composer>
+cycle_group<Composer> cycle_group<Composer>::dbl() const requires IsUltraArithmetic<Composer>
 {
     // ensure we use a value of y that is not zero. (only happens if point at infinity)
     // this costs 0 gates if `is_infinity` is a circuit constant
@@ -211,7 +209,7 @@ cycle_group<Composer> cycle_group<Composer>::dbl() const
         return cycle_group(x3, y3, is_point_at_infinity().get_value());
     }
     cycle_group result(witness_t(context, x3), witness_t(context, y3), is_point_at_infinity());
-    context->create_ecc_dbl_gate(proof_system::ecc_dbl_gate_<FF>{
+    context->create_ecc_dbl_gate(bb::ecc_dbl_gate_<FF>{
         .x1 = x.get_witness_index(),
         .y1 = modified_y.normalize().get_witness_index(),
         .x3 = result.x.get_witness_index(),
@@ -231,8 +229,8 @@ cycle_group<Composer> cycle_group<Composer>::dbl() const
  * @return cycle_group<Composer>
  */
 template <typename Composer>
-cycle_group<Composer> cycle_group<Composer>::unconditional_add(const cycle_group& other) const
-    requires IsNotUltraArithmetic<Composer>
+cycle_group<Composer> cycle_group<Composer>::unconditional_add(const cycle_group& other) const requires
+    IsNotUltraArithmetic<Composer>
 {
     auto x_diff = other.x - x;
     auto y_diff = other.y - y;
@@ -256,8 +254,8 @@ cycle_group<Composer> cycle_group<Composer>::unconditional_add(const cycle_group
  * @return cycle_group<Composer>
  */
 template <typename Composer>
-cycle_group<Composer> cycle_group<Composer>::unconditional_add(const cycle_group& other) const
-    requires IsUltraArithmetic<Composer>
+cycle_group<Composer> cycle_group<Composer>::unconditional_add(const cycle_group& other) const requires
+    IsUltraArithmetic<Composer>
 {
     auto context = get_context(other);
 
@@ -282,7 +280,7 @@ cycle_group<Composer> cycle_group<Composer>::unconditional_add(const cycle_group
     field_t r_y(witness_t(context, p3.y));
     cycle_group result(r_x, r_y, false);
 
-    proof_system::ecc_add_gate_<FF> add_gate{
+    bb::ecc_add_gate_<FF> add_gate{
         .x1 = x.get_witness_index(),
         .y1 = y.get_witness_index(),
         .x2 = other.x.get_witness_index(),
@@ -334,7 +332,7 @@ cycle_group<Composer> cycle_group<Composer>::unconditional_subtract(const cycle_
         field_t r_y(witness_t(context, p3.y));
         cycle_group result(r_x, r_y, false);
 
-        proof_system::ecc_add_gate_<FF> add_gate{
+        bb::ecc_add_gate_<FF> add_gate{
             .x1 = x.get_witness_index(),
             .y1 = y.get_witness_index(),
             .x2 = other.x.get_witness_index(),
@@ -1003,8 +1001,7 @@ template <typename Composer>
 typename cycle_group<Composer>::batch_mul_internal_output cycle_group<Composer>::_fixed_base_batch_mul_internal(
     const std::span<cycle_scalar> scalars,
     const std::span<AffineElement> base_points,
-    const std::span<AffineElement const> /*unused*/)
-    requires IsUltraArithmetic<Composer>
+    const std::span<AffineElement const> /*unused*/) requires IsUltraArithmetic<Composer>
 {
     ASSERT(scalars.size() == base_points.size());
 
@@ -1076,8 +1073,7 @@ template <typename Composer>
 typename cycle_group<Composer>::batch_mul_internal_output cycle_group<Composer>::_fixed_base_batch_mul_internal(
     const std::span<cycle_scalar> scalars,
     const std::span<AffineElement> base_points,
-    const std::span<AffineElement const> offset_generators)
-    requires IsNotUltraArithmetic<Composer>
+    const std::span<AffineElement const> offset_generators) requires IsNotUltraArithmetic<Composer>
 
 {
     ASSERT(scalars.size() == base_points.size());
@@ -1358,6 +1354,8 @@ template <typename Composer> cycle_group<Composer> cycle_group<Composer>::operat
     throw_or_abort("Implementation under construction...");
 }
 
-INSTANTIATE_STDLIB_TYPE(cycle_group);
+template class cycle_group<bb::StandardCircuitBuilder>;
+template class cycle_group<bb::UltraCircuitBuilder>;
+template class cycle_group<bb::GoblinUltraCircuitBuilder>;
 
-} // namespace proof_system::plonk::stdlib
+} // namespace bb::stdlib

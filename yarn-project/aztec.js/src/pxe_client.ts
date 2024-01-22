@@ -1,17 +1,4 @@
 import {
-  AztecAddress,
-  CompleteAddress,
-  EthAddress,
-  Fr,
-  FunctionSelector,
-  GrumpkinScalar,
-  Point,
-  KernelCircuitPublicInputs,
-  Proof,
-  VerificationKey,
-} from '@aztec/circuits.js';
-import { createJsonRpcClient, makeFetch } from '@aztec/foundation/json-rpc/client';
-import {
   AuthWitness,
   ContractData,
   ExtendedContractData,
@@ -27,8 +14,18 @@ import {
   TxExecutionRequest,
   TxHash,
   TxReceipt,
-  KernelProofData
-} from '@aztec/types';
+  KernelProofData,
+} from '@aztec/circuit-types';
+import {
+  AztecAddress,
+  CompleteAddress,
+  EthAddress,
+  Fr,
+  FunctionSelector,
+  GrumpkinScalar,
+  Point,
+} from '@aztec/circuits.js';
+import { createJsonRpcClient, makeFetch } from '@aztec/foundation/json-rpc/client';
 
 // import { ExecutionResult } from '@aztec/acir-simulator';
 

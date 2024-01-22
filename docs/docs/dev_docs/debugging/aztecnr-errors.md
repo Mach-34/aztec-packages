@@ -59,7 +59,7 @@ To execute a transaction, the PXE needs to know the complete address of a contra
 
 To address the error, add the contract to the PXE by calling [`pxe.addContracts(...)`](../../apis/pxe/interfaces/PXE#addcontracts).
 
-`Simulation error: No public key registered for address 0x0. Register it by calling pxe.registerRecipient(...) or pxe.registerAccount(...)`
+#### `Simulation error: No public key registered for address 0x0. Register it by calling pxe.registerRecipient(...) or pxe.registerAccount(...)`
 
 This error occurs when your contract is trying to get a public key via the `get_public_key` oracle call, but the PXE does not have the Complete Address (Complete Address contains the public key).
 
@@ -76,3 +76,9 @@ This error occurs when your contract is trying to get a secret via the `get_secr
 
 This error might occur when you register an account only as a recipient and not as an account.
 To address the error, register the account by calling `server.registerAccount(...)`.
+
+#### `Failed to solve brillig function, reason: explicit trap hit in brillig 'self._is_some`
+
+You may encounter this error when trying to send a transaction that is using an invalid contract. The contract may compile without errors and you only encounter this when sending the transaction.
+
+This error may arise when function parameters are not properly formatted, when trying to "double-spend" a note, or it may indicate that there is a bug deeper in the stack (e.g. a bug in the Aztec.nr library or deeper). If you hit this error, double check your contract implementation, but also consider [opening an issue](https://github.com/AztecProtocol/aztec-packages/issues/new).

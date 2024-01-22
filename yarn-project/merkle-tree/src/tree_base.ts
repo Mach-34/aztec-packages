@@ -1,8 +1,11 @@
 import { toBigIntLE, toBufferLE } from '@aztec/foundation/bigint-buffer';
-import { Hasher, SiblingPath } from '@aztec/types';
+import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { Hasher } from '@aztec/types/interfaces';
+import { SiblingPath } from '@aztec/types/membership';
 
 import { LevelUp, LevelUpChain } from 'levelup';
 
+import { HasherWithStats } from './hasher_with_stats.js';
 import { MerkleTree } from './interfaces/merkle_tree.js';
 
 const MAX_DEPTH = 254;
@@ -36,10 +39,13 @@ export abstract class TreeBase implements MerkleTree {
   private root!: Buffer;
   private zeroHashes: Buffer[] = [];
   private cache: { [key: string]: Buffer } = {};
+  protected log: DebugLogger;
+
+  protected hasher: HasherWithStats;
 
   public constructor(
     protected db: LevelUp,
-    protected hasher: Hasher,
+    hasher: Hasher,
     private name: string,
     private depth: number,
     protected size: bigint = 0n,
@@ -48,6 +54,8 @@ export abstract class TreeBase implements MerkleTree {
     if (!(depth >= 1 && depth <= MAX_DEPTH)) {
       throw Error('Invalid depth');
     }
+
+    this.hasher = new HasherWithStats(hasher);
 
     // Compute the zero values at each layer.
     let current = INITIAL_LEAF;
@@ -58,6 +66,8 @@ export abstract class TreeBase implements MerkleTree {
 
     this.root = root ? root : current;
     this.maxIndex = 2n ** BigInt(depth) - 1n;
+
+    this.log = createDebugLogger(`aztec:merkle-tree:${name}`);
   }
 
   /**

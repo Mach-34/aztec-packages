@@ -7,12 +7,12 @@
 // #define LOG_CHALLENGES
 // #define LOG_INTERACTIONS
 
-namespace proof_system::honk {
+namespace bb::honk {
 
 template <typename T, typename... U>
-concept Loggable = (std::same_as<T, barretenberg::fr> || std::same_as<T, grumpkin::fr> ||
-                    std::same_as<T, barretenberg::g1::affine_element> ||
-                    std::same_as<T, grumpkin::g1::affine_element> || std::same_as<T, uint32_t>);
+concept Loggable = (std::same_as<T, bb::fr> || std::same_as<T, grumpkin::fr> ||
+                    std::same_as<T, bb::g1::affine_element> || std::same_as<T, grumpkin::g1::affine_element> ||
+                    std::same_as<T, uint32_t>);
 
 // class TranscriptManifest;
 class TranscriptManifest {
@@ -347,9 +347,15 @@ class BaseTranscript {
         return result;
     }
 
-    [[nodiscard]] TranscriptManifest get_manifest() const { return manifest; };
+    [[nodiscard]] TranscriptManifest get_manifest() const
+    {
+        return manifest;
+    };
 
-    void print() { manifest.print(); }
+    void print()
+    {
+        manifest.print();
+    }
 };
 
 /**
@@ -363,4 +369,4 @@ template <typename FF, typename T, size_t N> std::array<FF, N> challenges_to_fie
     std::move(arr.begin(), arr.end(), result.begin());
     return result;
 }
-} // namespace proof_system::honk
+} // namespace bb::honk

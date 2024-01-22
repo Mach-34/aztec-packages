@@ -3,7 +3,7 @@
 #include "barretenberg/crypto/blake3s/blake3s.hpp"
 #include "barretenberg/crypto/keccak/keccak.hpp"
 
-namespace barretenberg::group_elements {
+namespace bb::group_elements {
 template <class Fq, class Fr, class T>
 constexpr affine_element<Fq, Fr, T>::affine_element(const Fq& a, const Fq& b) noexcept
     : x(a)
@@ -221,9 +221,8 @@ constexpr std::optional<affine_element<Fq, Fr, T>> affine_element<Fq, Fr, T>::de
  * @return constexpr affine_element<Fq, Fr, T>
  */
 template <class Fq, class Fr, class T>
-constexpr affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::hash_to_curve(const std::vector<uint8_t>& seed,
-                                                                             uint8_t attempt_count) noexcept
-    requires SupportsHashToCurve<T>
+constexpr affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::hash_to_curve(
+    const std::vector<uint8_t>& seed, uint8_t attempt_count) noexcept requires SupportsHashToCurve<T>
 
 {
     std::vector<uint8_t> target_seed(seed);
@@ -287,4 +286,4 @@ affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::random_element(numeric::ran
     return affine_element<Fq, Fr, T>(x, y);
 }
 
-} // namespace barretenberg::group_elements
+} // namespace bb::group_elements

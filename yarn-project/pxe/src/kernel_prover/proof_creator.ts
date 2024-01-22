@@ -1,3 +1,5 @@
+import { CircuitSimulationStats } from '@aztec/circuit-types/stats';
+import { ProofOutput, ProofOutputFinal } from '@aztec/circuit-types'
 import {
   PrivateCircuitPublicInputs,
   PrivateKernelInputsInit,
@@ -10,8 +12,6 @@ import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
 import { executeInit, executeInner, executeOrdering } from '@aztec/noir-protocol-circuits';
-import { CircuitSimulationStats } from '@aztec/types/stats';
-import { ProofOutput, ProofOutputFinal } from '@aztec/types';
 
 
 /**
