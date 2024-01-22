@@ -355,7 +355,7 @@ export class PXEService implements PXE {
       const deployedContractAddress = txRequest.txContext.isContractDeploymentTx ? txRequest.origin : undefined;
       const newContract = deployedContractAddress ? await this.db.getContract(deployedContractAddress) : undefined;
 
-      const tx = await this.#simulateAndProve(txRequest, newContract);
+      const tx = await this.simulateAndProve(txRequest, newContract);
       if (simulatePublic) {
         await this.#simulatePublicCalls(tx);
       }

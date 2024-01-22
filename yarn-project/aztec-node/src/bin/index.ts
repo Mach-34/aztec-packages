@@ -14,7 +14,6 @@ const logger = createDebugLogger('aztec:node');
  */
 async function createAndDeployAztecNode() {
   const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars() };
-
   return await AztecNodeService.createAndSync(aztecNodeConfig);
 }
 
@@ -23,9 +22,7 @@ async function createAndDeployAztecNode() {
  */
 async function main() {
   logger.info(`Setting up Aztec Node...`);
-
   const aztecNode = await createAndDeployAztecNode();
-
   const shutdown = async () => {
     logger.info('Shutting down...');
     await aztecNode.stop();
@@ -34,7 +31,6 @@ async function main() {
 
   process.once('SIGINT', shutdown);
   process.once('SIGTERM', shutdown);
-
   const rpcServer = createAztecNodeRpcServer(aztecNode);
   const app = rpcServer.getApp(API_PREFIX);
 
