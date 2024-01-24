@@ -1,6 +1,5 @@
 import { ExecutionResult } from '@aztec/acir-simulator';
 import {
-  AztecAddress,
   CONTRACT_TREE_HEIGHT,
   CallRequest,
   Fr,
@@ -33,7 +32,7 @@ import { pushTestData } from '@aztec/foundation/testing';
 
 import { KernelProofCreator, ProofCreator } from './proof_creator.js';
 import { ProvingDataOracle } from './proving_data_oracle.js';
-import { ProofOutput, ProofOutputFinal, OutputNoteData, KernelProofData } from '@aztec/types';
+import { ProofOutput, ProofOutputFinal, OutputNoteData, KernelProofData } from '@aztec/circuit-types';
 
 /**
  * Represents the output data of the Kernel Prover.

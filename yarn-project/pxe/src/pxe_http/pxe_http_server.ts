@@ -1,11 +1,3 @@
-<<<<<<< HEAD
-import { FunctionSelector, KernelCircuitPublicInputs, Proof, VerificationKey } from '@aztec/circuits.js';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
-import { JsonRpcServer } from '@aztec/foundation/json-rpc/server';
-=======
->>>>>>> origin
 import {
   AuthWitness,
   CompleteAddress,
@@ -23,17 +15,13 @@ import {
   TxExecutionRequest,
   TxHash,
   TxReceipt,
-<<<<<<< HEAD
   KernelProofData
-} from '@aztec/types';
-=======
 } from '@aztec/circuit-types';
-import { FunctionSelector } from '@aztec/circuits.js';
+import { FunctionSelector, Proof, VerificationKey, KernelCircuitPublicInputs } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 import { JsonRpcServer } from '@aztec/foundation/json-rpc/server';
->>>>>>> origin
 
 import http from 'http';
 import { foundry } from 'viem/chains';

@@ -87,4 +87,3 @@ export function collectEnqueuedPublicFunctionCalls(execResult: ExecutionResult):
 }
 
 // @TODO if reasonable - replace imports across codebase with @aztec/types instead of re-exporting here
-export { ExecutionResult, NoteAndSlot }

@@ -24,6 +24,9 @@ import {
   FunctionSelector,
   GrumpkinScalar,
   Point,
+  Proof,
+  VerificationKey,
+  KernelCircuitPublicInputs
 } from '@aztec/circuits.js';
 import { createJsonRpcClient, makeFetch } from '@aztec/foundation/json-rpc/client';
 

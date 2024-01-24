@@ -362,17 +362,13 @@ export class PXEService implements PXE {
       const deployedContractAddress = txRequest.txContext.isContractDeploymentTx ? txRequest.origin : undefined;
       const newContract = deployedContractAddress ? await this.db.getContract(deployedContractAddress) : undefined;
 
-<<<<<<< HEAD
-      const tx = await this.simulateAndProve(txRequest, newContract);
-=======
       const timer = new Timer();
-      const tx = await this.#simulateAndProve(txRequest, newContract);
+      const tx = await this.simulateAndProve(txRequest, newContract);
       this.log(`Processed private part of ${tx.data.end.newNullifiers[0]}`, {
         eventName: 'tx-pxe-processing',
         duration: timer.ms(),
         ...tx.getStats(),
       } satisfies TxPXEProcessingStats);
->>>>>>> origin
       if (simulatePublic) {
         await this.#simulatePublicCalls(tx);
       }
