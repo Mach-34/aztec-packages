@@ -17,7 +17,8 @@ import {
   TxExecutionRequest,
   TxHash,
   TxReceipt,
-  KernelProofData
+  KernelProofData,
+  AppCircuitResult,
 } from '@aztec/circuit-types';
 import { AztecAddress, CompleteAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
 import { NodeInfo } from '@aztec/types/interfaces';
@@ -141,5 +142,13 @@ export abstract class BaseWallet implements Wallet {
 
   proveInner(input: KernelProofData): Promise<KernelProofData> {
     return this.pxe.proveInner(input);
+  }
+
+  simulateAppCircuit(txRequest: TxExecutionRequest): Promise<AppCircuitResult> {
+    return this.pxe.simulateAppCircuit(txRequest);
+  }
+
+  proveSimulatedAppCircuits(request: TxExecutionRequest, result: AppCircuitResult): Promise<Tx> {
+    return this.pxe.proveSimulatedAppCircuits(request, result);
   }
 }

@@ -108,7 +108,6 @@ export class AcirSimulator {
       this.db,
       curve,
     );
-
     try {
       const executionResult = await executePrivateFunction(
         context,

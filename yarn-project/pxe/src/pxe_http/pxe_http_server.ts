@@ -15,7 +15,8 @@ import {
   TxExecutionRequest,
   TxHash,
   TxReceipt,
-  KernelProofData
+  KernelProofData,
+  AppCircuitResult
 } from '@aztec/circuit-types';
 import { FunctionSelector, Proof, VerificationKey, KernelCircuitPublicInputs } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -62,7 +63,8 @@ export function createPXERpcServer(pxeService: PXE): JsonRpcServer {
       TxReceipt,
       L2BlockL2Logs,
       KernelCircuitPublicInputs,
-      KernelProofData
+      KernelProofData,
+      AppCircuitResult
     },
     false,
     ['start', 'stop'],

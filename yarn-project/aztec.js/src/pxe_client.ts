@@ -15,6 +15,7 @@ import {
   TxHash,
   TxReceipt,
   KernelProofData,
+  AppCircuitResult,
 } from '@aztec/circuit-types';
 import {
   AztecAddress,
@@ -70,7 +71,8 @@ export const createPXEClient = (url: string, fetch = makeFetch([1, 2, 3], true))
       TxReceipt,
       L2BlockL2Logs,
       KernelCircuitPublicInputs,
-      KernelProofData
+      KernelProofData,
+      AppCircuitResult,
     },
     false,
     fetch,

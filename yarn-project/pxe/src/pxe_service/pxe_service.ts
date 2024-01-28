@@ -33,6 +33,7 @@ import {
   getNewContractPublicFunctions,
   isNoirCallStackUnresolved,
   KernelProofData,
+  AppCircuitResult,
 } from '@aztec/circuit-types';
 import { TxPXEProcessingStats } from '@aztec/circuit-types/stats';
 import {
@@ -45,7 +46,6 @@ import {
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   PartialAddress,
   PublicCallRequest,
-  VerificationKey,
 } from '@aztec/circuits.js';
 import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/abis';
 import { DecodedReturn, encodeArguments } from '@aztec/foundation/abi';
@@ -527,6 +527,21 @@ export class PXEService implements PXE {
     };
   }
 
+  public async simulateAppCircuit(txRequest: TxExecutionRequest): Promise<AppCircuitResult> {
+    const { contractAddress, functionArtifact, portalContract } = await this.getSimulationParameters(txRequest);
+    try {
+      const result = await this.simulator.run(txRequest, functionArtifact, contractAddress, portalContract);
+      console.log("result: ", result);
+      this.log('Simulation completed!');
+      return AppCircuitResult.fromExecutionResult(result);
+    } catch (err) {
+      if (err instanceof SimulationError) {
+        await this.#enrichSimulationError(err);
+      }
+      throw err;
+    }
+  }
+
   public async simulate(txRequest: TxExecutionRequest): Promise<ExecutionResult> {
     // TODO - Pause syncing while simulating.
     const { contractAddress, functionArtifact, portalContract } = await this.getSimulationParameters(txRequest);
@@ -596,6 +611,22 @@ export class PXEService implements PXE {
 
       throw err;
     }
+  }
+
+  async proveSimulatedAppCircuits(request: TxExecutionRequest, result: AppCircuitResult): Promise<Tx> {
+    // convert the app circuit into an execution result
+    const executionResult = result.toExecutionResult();
+    const kernelOracle = new KernelOracle(this.contractDataOracle, this.node);
+    const kernelProver = new KernelProver(kernelOracle);
+    const { proof, publicInputs } = await kernelProver.prove(request.toTxRequest(), executionResult);
+    const encryptedLogs = new TxL2Logs(collectEncryptedLogs(executionResult));
+    const unencryptedLogs = new TxL2Logs(collectUnencryptedLogs(executionResult));
+    const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(executionResult);
+    const extendedContractData = ExtendedContractData.empty()
+    // HACK(#1639): Manually patches the ordering of the public call stack
+    // TODO(#757): Enforce proper ordering of enqueued public calls
+    await this.patchPublicCallStackOrdering(publicInputs, enqueuedPublicFunctions);
+    return new Tx(publicInputs, proof, encryptedLogs, unencryptedLogs, enqueuedPublicFunctions, [extendedContractData]);
   }
 
   /**

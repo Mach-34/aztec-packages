@@ -14,6 +14,7 @@ import { SyncStatus } from './sync-status.js';
 import { KernelProofData } from './kernel_proof_data.js';
 import { FunctionCall } from '../function_call.js';
 import { ContractDao } from '../contract_dao.js';
+import { AppCircuitResult } from '../app_result.js';
 // docs:start:pxe-interface
 /**
  * Private eXecution Environment (PXE) runs locally for each user, providing functionality for all the operations
@@ -311,5 +312,11 @@ export interface PXE {
 
   /** Proves a single inner step kernel proof iteration */
   proveInner(input: KernelProofData): Promise<KernelProofData>;
+
+  /** Simulate app circuit without all of the execution context */
+  simulateAppCircuit(txRequest: TxExecutionRequest): Promise<AppCircuitResult>;
+
+  /** Runs the Kernel Prover without simulating app circuits */
+  proveSimulatedAppCircuits(request: TxExecutionRequest, result: AppCircuitResult): Promise<Tx>;
 }
 // docs:end:pxe-interface

@@ -24,6 +24,11 @@
             "date": 1706063005296,
             "name": "log/aztec-sandbox-2024-01-23.debug.log",
             "hash": "108ce1b06cdc770d447a05d860188fdfb61cda7748bb9d7b597be35592069f73"
+        },
+        {
+            "date": 1706405676072,
+            "name": "log/aztec-sandbox-2024-01-27.debug.log",
+            "hash": "6be92096d5c45e4246ed1f73431968f673f34cb7023975aebb8623874e4fc29b"
         }
     ],
     "hashType": "sha256"
