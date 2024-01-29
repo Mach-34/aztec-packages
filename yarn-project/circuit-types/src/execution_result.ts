@@ -14,16 +14,15 @@ export type ACVMField = string;
 export class NoteAndSlot {
   constructor(public readonly note: Note, public readonly storageSlot: Fr) {}
 
-  public toString(): string {
-    return JSON.stringify({
+  public toJSON(): object {
+    return {
       note: this.note.toString(),
       storageSlot: this.storageSlot.toString(),
-    });
+    };
   }
 
-  public static fromString(str: string): NoteAndSlot {
-    const data = JSON.parse(str);
-    return new NoteAndSlot(Note.fromString(data.note), Fr.fromString(data.storageSlot));
+  public static fromJSON(obj: any): NoteAndSlot {
+    return new NoteAndSlot(Note.fromString(obj.note), Fr.fromString(obj.storageSlot));
   }
 }
 

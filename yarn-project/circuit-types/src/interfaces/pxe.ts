@@ -275,10 +275,10 @@ export interface PXE {
    * @returns - a chopped version of an ExecutionResult containing the bare minimum info needed to prove a kernel circuit
    */
   simulateAppCircuit(
-    argsHash: Fr,
-    args: PackedArguments[],
+    args: PackedArguments,
     selector: FunctionSelector,
     executionNotes: NoteAndSlot[],
+    nullified: boolean[],
     targetContractAddress: AztecAddress,
     sideEffectCounter: number,
   ): Promise<AppExecutionResult>;

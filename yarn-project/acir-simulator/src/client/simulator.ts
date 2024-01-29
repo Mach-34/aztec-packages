@@ -1,4 +1,13 @@
-import { AztecNode, FunctionCall, Note, TxExecutionRequest, ExecutionResult, PackedArguments, NoteAndSlot, AuthWitness } from '@aztec/circuit-types';
+import {
+  AuthWitness,
+  AztecNode,
+  ExecutionResult,
+  FunctionCall,
+  Note,
+  NoteAndSlot,
+  PackedArguments,
+  TxExecutionRequest,
+} from '@aztec/circuit-types';
 import { CallContext, ContractDeploymentData, FunctionData, TxContext } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import {
@@ -60,38 +69,31 @@ export class AcirSimulator {
    * @dev only supports inter contract calls (target = current contract)
    * @dev no support for auth witness
    * @dev expects all logs to be issued by same contract
-   * 
-   * @param args 
+   *
+   * @param args
    * @param executionNotes
-   * @param targetContractAddress 
-   * @param functionSelector 
-   * @param argsHash 
-   * @param sideffectCounter 
+   * @param targetContractAddress
+   * @param functionSelector
+   * @param argsHash
+   * @param sideEffectCounter
    */
   public async runNested(
-    argsHash: Fr,
-    args: PackedArguments[],
+    args: PackedArguments,
     functionSelector: FunctionSelector,
     executionNotes: NoteAndSlot[],
+    nullified: boolean[],
     targetContractAddress: AztecAddress,
     sideEffectCounter: number,
   ): Promise<ExecutionResult> {
     // hardcode chainId and version for now
-    const chainId = Fr.fromString("0x7a69"); // 31337
-    const version = Fr.fromString("0x01");
+    const chainId = Fr.fromString('0x7a69'); // 31337
+    const version = Fr.fromString('0x01');
 
     const targetArtifact = await this.db.getFunctionArtifact(targetContractAddress, functionSelector);
     const targetFunctionData = FunctionData.fromAbi(targetArtifact);
     const portalContractAddress = await this.db.getPortalContractAddress(targetContractAddress);
 
-    const derivedTxContext = new TxContext(
-      false,
-      false,
-      false,
-      ContractDeploymentData.empty(),
-      chainId,
-      version,
-    );
+    const derivedTxContext = new TxContext(false, false, false, ContractDeploymentData.empty(), chainId, version);
 
     const derivedCallContext = new CallContext(
       targetContractAddress,
@@ -101,38 +103,69 @@ export class AcirSimulator {
       false,
       false,
       false,
-      sideEffectCounter
+      sideEffectCounter,
     );
 
     const context = new ClientExecutionContext(
       targetContractAddress,
-      argsHash,
+      args.hash,
       derivedTxContext,
       derivedCallContext,
       await this.db.getBlockHeader(),
       [new AuthWitness(Fr.ZERO, [Fr.ZERO])],
-      PackedArgsCache.create(args),
+      PackedArgsCache.create([args]),
       new ExecutionNoteCache(),
       this.db,
-      new Grumpkin()
+      new Grumpkin(),
     );
 
     // build note cache
-    for (const note of executionNotes) {
+    if (executionNotes.length !== nullified.length) {
+      throw new Error("Nullifier vector length must match note vector length");
+    };
+    for (let i = 0; i < executionNotes.length; i++) {
+      const note = executionNotes[i];
       // compute inner note hash
       const innerNoteHash = await this.computeInnerNoteHash(targetContractAddress, note.storageSlot, note.note);
       // add to cache
       context.notifyCreatedNote(note.storageSlot, note.note.items, innerNoteHash);
+      // nullify if necessary
+      if (nullified[i]) {
+        const innerNullifier = await this.computeInnerNullifier(
+          targetContractAddress,
+          Fr.ZERO,
+          note.storageSlot,
+          note.note
+        );
+        await context.notifyNullifiedNote(
+          innerNullifier,
+          innerNoteHash,
+        );
+      }
     }
 
-    
+    const res = await executePrivateFunction(context, targetArtifact, targetContractAddress, targetFunctionData);
+    for (const key of context.noteCache.newNotes.keys()) {
+      for (const note of context.noteCache.newNotes.get(key) ?? []) {
+        console.log('note: ', note.note);
+        console.log('note hash: ', note.innerNoteHash);
+        console.log('nonce: ', note.nonce);
+        console.log('storage slot: ', note.storageSlot);
+        console.log('contract address: ', note.contractAddress);
+        console.log('nullifier: ', note.siloedNullifier);
+        console.log('index: ', note.index);
+        const expectedNullifier = await this.computeInnerNullifier(
+          targetContractAddress,
+          Fr.ZERO,
+          note.storageSlot,
+          note.note,
+        );
+        console.log('Expected nullifeir: ', expectedNullifier);
+      }
+    }
+    console.log('nullifiers: ', context.noteCache.nullifiers);
 
-    return await executePrivateFunction(
-      context,
-      targetArtifact,
-      targetContractAddress,
-      targetFunctionData,
-    );
+    return res;
   }
 
   /**
@@ -194,23 +227,6 @@ export class AcirSimulator {
         contractAddress,
         request.functionData,
       );
-      console.log("NOTE CACHE: ", context.noteCache.newNotes);
-      const keys = context.noteCache.newNotes.keys();
-      for (const key of keys) {
-        const notes = context.noteCache.newNotes.get(key) ?? [];
-        for (const newNote of notes) {
-          console.log("note: ", newNote.note);
-          console.log("contractAddress: ", newNote.contractAddress);
-          console.log("storageSlot: ", newNote.storageSlot);
-          console.log("nonce: ", newNote.nonce);
-          console.log("innerNoteHash: ", newNote.innerNoteHash);
-          console.log("siloedNullifier: ", newNote.siloedNullifier);
-          console.log("index: ", newNote.index);
-
-          const comptuedInnerHash = await this.computeInnerNoteHash(AztecAddress.fromBigInt(key), newNote.storageSlot, newNote.note);
-          console.log("Expected innerNoteHash: ", comptuedInnerHash);
-        }
-      }
       return executionResult;
     } catch (err) {
       throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));

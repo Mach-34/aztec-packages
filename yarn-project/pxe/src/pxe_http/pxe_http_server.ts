@@ -56,10 +56,9 @@ export function createPXERpcServer(pxeService: PXE): JsonRpcServer {
       L2Block,
       L2Tx,
       LogId,
-      PackedArguments,
-      NoteAndSlot
+      PackedArguments
     },
-    { Tx, TxReceipt, L2BlockL2Logs, AppExecutionResult },
+    { Tx, TxReceipt, L2BlockL2Logs, AppExecutionResult, NoteAndSlot },
     false,
     ['start', 'stop'],
   );

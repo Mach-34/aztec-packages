@@ -733,15 +733,15 @@ export class PXEService implements PXE {
    * @returns - a chopped version of an ExecutionResult containing the bare minimum info needed to prove a kernel circuit
    */
   public async simulateAppCircuit(
-    argsHash: Fr,
-    args: PackedArguments[],
+    args: PackedArguments,
     selector: FunctionSelector,
     executionNotes: NoteAndSlot[],
+    nullified: boolean[],
     targetContractAddress: AztecAddress,
     sideEffectCounter: number,
   ): Promise<AppExecutionResult> {
     try {
-      const result = await this.simulator.runNested(argsHash, args, selector, executionNotes, targetContractAddress, sideEffectCounter);
+      const result = await this.simulator.runNested(args, selector, executionNotes, nullified, targetContractAddress, sideEffectCounter);
       this.log('Simulation completed!');
       // console.log("Simulated Execution Result: ", result);
       return AppExecutionResult.fromExecutionResult(result);

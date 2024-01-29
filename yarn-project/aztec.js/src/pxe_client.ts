@@ -60,9 +60,8 @@ export const createPXEClient = (url: string, fetch = makeFetch([1, 2, 3], true))
       LogId,
       L2Block,
       PackedArguments,
-      NoteAndSlot
     },
-    { Tx, TxReceipt, L2BlockL2Logs, AppExecutionResult },
+    { Tx, TxReceipt, L2BlockL2Logs, AppExecutionResult, NoteAndSlot },
     false,
     fetch,
   );

@@ -121,14 +121,14 @@ export abstract class BaseWallet implements Wallet {
   }
 
   simulateAppCircuit(
-    argsHash: Fr,
-    args: PackedArguments[],
+    args: PackedArguments,
     selector: FunctionSelector,
     executionNotes: NoteAndSlot[],
+    nullified: boolean[],
     targetContractAddress: AztecAddress,
     sideEffectCounter: number,
   ): Promise<AppExecutionResult> {
-    return this.pxe.simulateAppCircuit(argsHash, args, selector, executionNotes, targetContractAddress, sideEffectCounter);
+    return this.pxe.simulateAppCircuit(args, selector, executionNotes, nullified, targetContractAddress, sideEffectCounter);
   }
 
   proveSimulatedAppCircuits(request: TxExecutionRequest, result: AppExecutionResult): Promise<Tx> {

@@ -253,10 +253,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       siloedNullifier: undefined, // Siloed nullifier cannot be known for newly created note.
       innerNoteHash,
     });
-    this.newNotes.push({
-      storageSlot,
-      note,
-    });
+    this.newNotes.push(new NoteAndSlot(note, storageSlot));
   }
 
   /**
