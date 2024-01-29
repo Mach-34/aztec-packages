@@ -12,7 +12,7 @@ export class ExecutionNoteCache {
    * New notes created in this transaction.
    * This mapping maps from a contract address to the notes in the contract.
    */
-  private newNotes: Map<bigint, NoteData[]> = new Map();
+  public newNotes: Map<bigint, NoteData[]> = new Map();
 
   /**
    * The list of nullifiers created in this transaction.

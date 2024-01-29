@@ -75,12 +75,7 @@ export class AppExecutionResult {
             vk: this.vk.toString('hex'),
             callStackItem: this.callStackItem.toBuffer().toString('hex'),
             readRequestPartialWitnesses: this.readRequestPartialWitnesses.map(rr => rr.toBuffer().toString('hex')),
-            newNotes: this.newNotes.map(nn => {
-                return {
-                    note: nn.note.toString(),
-                    storageSlot: nn.storageSlot.toString(),
-                }
-            }),
+            newNotes: this.newNotes.map(nn => nn.toString()),
             nestedExecutions: this.nestedExecutions.map(ne => ne.toJSON()),
             enqueuedPublicFunctionCalls: this.enqueuedPublicFunctionCalls.map(ec => ec.toBuffer().toString('hex')),
             encryptedLogs: this.encryptedLogs.toJSON(),
@@ -93,12 +88,7 @@ export class AppExecutionResult {
             Buffer.from(obj.vk, 'hex'),
             PrivateCallStackItem.fromBuffer(Buffer.from(obj.callStackItem, 'hex')),
             obj.readRequestPartialWitnesses.map((rr: string) => ReadRequestMembershipWitness.fromBuffer(Buffer.from(rr, 'hex'))),
-            obj.newNotes.map((nn: any) => {
-                return {
-                    note: nn.note.toString(),
-                    storageSlot: nn.storageSlot.toString(),
-                }
-            }),
+            obj.newNotes.map((nn: any) => NoteAndSlot.fromString(nn)),
             obj.nestedExecutions.map((ne: any) => AppExecutionResult.fromJSON(ne)),
             obj.enqueuedPublicFunctionCalls.map((ec: string) => PublicCallRequest.fromBuffer(Buffer.from(ec, 'hex'))),
             FunctionL2Logs.fromJSON(obj.encryptedLogs),

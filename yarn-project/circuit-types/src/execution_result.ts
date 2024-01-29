@@ -11,11 +11,20 @@ export type ACVMField = string;
 /**
  * The contents of a new note.
  */
-export interface NoteAndSlot {
-  /** The note. */
-  note: Note;
-  /** The storage slot of the note. */
-  storageSlot: Fr;
+export class NoteAndSlot {
+  constructor(public readonly note: Note, public readonly storageSlot: Fr) {}
+
+  public toString(): string {
+    return JSON.stringify({
+      note: this.note.toString(),
+      storageSlot: this.storageSlot.toString(),
+    });
+  }
+
+  public static fromString(str: string): NoteAndSlot {
+    const data = JSON.parse(str);
+    return new NoteAndSlot(Note.fromString(data.note), Fr.fromString(data.storageSlot));
+  }
 }
 
 /**

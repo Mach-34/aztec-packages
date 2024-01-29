@@ -614,7 +614,6 @@ export class PXEService implements PXE {
 
     // Get values that allow us to reconstruct the block hash
     const executionResult = await this.#simulate(txExecutionRequest);
-
     const kernelOracle = new KernelOracle(this.contractDataOracle, this.node);
     const kernelProver = new KernelProver(kernelOracle);
     this.log(`Executing kernel prover...`);
@@ -739,6 +738,7 @@ export class PXEService implements PXE {
     try {
       const result = await this.simulator.run(txRequest, functionArtifact, contractAddress, portalContract);
       this.log('Simulation completed!');
+      // console.log("Simulated Execution Result: ", result);
       return AppExecutionResult.fromExecutionResult(result);
     } catch (err) {
       if (err instanceof SimulationError) {

@@ -30,12 +30,20 @@ export class PackedArguments {
     return new PackedArguments(args, computeVarArgsHash(args));
   }
 
-  toBuffer() {
+  public toBuffer() {
     return serializeToBuffer(new Vector(this.args), this.hash);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): PackedArguments {
     const reader = BufferReader.asReader(buffer);
     return new PackedArguments(reader.readVector(Fr), Fr.fromBuffer(reader));
+  }
+
+  public toString() {
+    return this.toBuffer().toString('hex');
+  }
+
+  public static fromString(str: string) {
+    return PackedArguments.fromBuffer(Buffer.from(str, 'hex'));
   }
 }

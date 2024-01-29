@@ -68,7 +68,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     /** List of transient auth witnesses to be used during this simulation */
     protected readonly authWitnesses: AuthWitness[],
     private readonly packedArgsCache: PackedArgsCache,
-    private readonly noteCache: ExecutionNoteCache,
+    public readonly noteCache: ExecutionNoteCache,
     protected readonly db: DBOracle,
     private readonly curve: Grumpkin,
     protected log = createDebugLogger('aztec:simulator:client_execution_context'),

@@ -1,5 +1,5 @@
-import { AztecNode, FunctionCall, Note, TxExecutionRequest, ExecutionResult } from '@aztec/circuit-types';
-import { CallContext, FunctionData } from '@aztec/circuits.js';
+import { AztecNode, FunctionCall, Note, TxExecutionRequest, ExecutionResult, PackedArguments, NoteAndSlot, AuthWitness } from '@aztec/circuit-types';
+import { CallContext, ContractDeploymentData, FunctionData, TxContext } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import {
   ArrayType,
@@ -56,6 +56,85 @@ export class AcirSimulator {
   }
 
   /**
+   * Runs nested execution
+   * @dev only supports inter contract calls (target = current contract)
+   * @dev no support for auth witness
+   * @dev expects all logs to be issued by same contract
+   * 
+   * @param args 
+   * @param executionNotes
+   * @param targetContractAddress 
+   * @param functionSelector 
+   * @param argsHash 
+   * @param sideffectCounter 
+   */
+  public async runNested(
+    args: PackedArguments[],
+    executionNotes: NoteAndSlot[],
+    targetContractAddress: AztecAddress,
+    functionSelector: FunctionSelector,
+    argsHash: Fr,
+    sideEffectCounter: number,
+  ): Promise<ExecutionResult> {
+    // hardcode chainId and version for now
+    const chainId = Fr.fromString("0x7a69"); // 31337
+    const version = Fr.fromString("0x01");
+
+    const targetArtifact = await this.db.getFunctionArtifact(targetContractAddress, functionSelector);
+    const targetFunctionData = FunctionData.fromAbi(targetArtifact);
+    const portalContractAddress = await this.db.getPortalContractAddress(targetContractAddress);
+
+    const derivedTxContext = new TxContext(
+      false,
+      false,
+      false,
+      ContractDeploymentData.empty(),
+      chainId,
+      version,
+    );
+
+    const derivedCallContext = new CallContext(
+      targetContractAddress,
+      targetContractAddress,
+      portalContractAddress,
+      FunctionSelector.fromNameAndParameters(targetArtifact.name, targetArtifact.parameters),
+      false,
+      false,
+      false,
+      sideEffectCounter
+    );
+
+    const context = new ClientExecutionContext(
+      targetContractAddress,
+      argsHash,
+      derivedTxContext,
+      derivedCallContext,
+      await this.db.getBlockHeader(),
+      AuthWitness { witnesses: [] },
+      PackedArgsCache.create(args),
+      new ExecutionNoteCache(),
+      this.db,
+      new Grumpkin()
+    );
+
+    // build note cache
+    for (const note of executionNotes) {
+      // compute inner note hash
+      const innerNoteHash = await this.computeInnerNoteHash(targetContractAddress, note.storageSlot, note.note);
+
+    }
+
+    
+
+    return await executePrivateFunction(
+      context,
+      targetArtifact,
+      targetContractAddress,
+      targetFunctionData,
+    );
+  }
+
+  /**
    * Runs a private function.
    * @param request - The transaction request.
    * @param entryPointArtifact - The artifact of the entry point function.
@@ -107,7 +186,6 @@ export class AcirSimulator {
       this.db,
       curve,
     );
-
     try {
       const executionResult = await executePrivateFunction(
         context,
@@ -115,6 +193,23 @@ export class AcirSimulator {
         contractAddress,
         request.functionData,
       );
+      console.log("NOTE CACHE: ", context.noteCache.newNotes);
+      const keys = context.noteCache.newNotes.keys();
+      for (const key of keys) {
+        const notes = context.noteCache.newNotes.get(key) ?? [];
+        for (const newNote of notes) {
+          console.log("note: ", newNote.note);
+          console.log("contractAddress: ", newNote.contractAddress);
+          console.log("storageSlot: ", newNote.storageSlot);
+          console.log("nonce: ", newNote.nonce);
+          console.log("innerNoteHash: ", newNote.innerNoteHash);
+          console.log("siloedNullifier: ", newNote.siloedNullifier);
+          console.log("index: ", newNote.index);
+
+          const comptuedInnerHash = await this.computeInnerNoteHash(AztecAddress.fromBigInt(key), newNote.storageSlot, newNote.note);
+          console.log("Expected innerNoteHash: ", comptuedInnerHash);
+        }
+      }
       return executionResult;
     } catch (err) {
       throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));
