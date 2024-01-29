@@ -1,4 +1,4 @@
-import { AztecAddress, CompleteAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
+import { AztecAddress, CompleteAddress, Fr, FunctionSelector, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
 import { NodeInfo } from '@aztec/types/interfaces';
 
 import { AppExecutionResult } from '../app_execution_result.js';
@@ -13,6 +13,8 @@ import { Tx, TxHash, TxReceipt } from '../tx/index.js';
 import { TxExecutionRequest } from '../tx_execution_request.js';
 import { DeployedContract } from './deployed-contract.js';
 import { SyncStatus } from './sync-status.js';
+import { PackedArguments } from '../packed_arguments.js';
+import { NoteAndSlot } from '../execution_result.js';
 
 // docs:start:pxe-interface
 /**
@@ -272,7 +274,14 @@ export interface PXE {
    * @param txRequest - the request to execute the transaction
    * @returns - a chopped version of an ExecutionResult containing the bare minimum info needed to prove a kernel circuit
    */
-  simulateAppCircuit(txRequest: TxExecutionRequest): Promise<AppExecutionResult>;
+  simulateAppCircuit(
+    argsHash: Fr,
+    args: PackedArguments[],
+    selector: FunctionSelector,
+    executionNotes: NoteAndSlot[],
+    targetContractAddress: AztecAddress,
+    sideEffectCounter: number,
+  ): Promise<AppExecutionResult>;
 
   /**
    * Functionally just splits the simulateAndProve function into two parts

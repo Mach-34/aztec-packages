@@ -69,11 +69,11 @@ export class AcirSimulator {
    * @param sideffectCounter 
    */
   public async runNested(
+    argsHash: Fr,
     args: PackedArguments[],
+    functionSelector: FunctionSelector,
     executionNotes: NoteAndSlot[],
     targetContractAddress: AztecAddress,
-    functionSelector: FunctionSelector,
-    argsHash: Fr,
     sideEffectCounter: number,
   ): Promise<ExecutionResult> {
     // hardcode chainId and version for now
@@ -110,7 +110,7 @@ export class AcirSimulator {
       derivedTxContext,
       derivedCallContext,
       await this.db.getBlockHeader(),
-      AuthWitness { witnesses: [] },
+      [new AuthWitness(Fr.ZERO, [Fr.ZERO])],
       PackedArgsCache.create(args),
       new ExecutionNoteCache(),
       this.db,
@@ -121,7 +121,8 @@ export class AcirSimulator {
     for (const note of executionNotes) {
       // compute inner note hash
       const innerNoteHash = await this.computeInnerNoteHash(targetContractAddress, note.storageSlot, note.note);
-
+      // add to cache
+      context.notifyCreatedNote(note.storageSlot, note.note.items, innerNoteHash);
     }
 
     

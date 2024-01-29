@@ -1,13 +1,12 @@
+import { AcirSimulator, resolveOpcodeLocations } from '@aztec/acir-simulator';
 import {
-  AcirSimulator,
-  resolveOpcodeLocations,
-} from '@aztec/acir-simulator';
-import {
+  AppExecutionResult,
   AuthWitness,
   AztecNode,
   ContractDao,
   ContractData,
   DeployedContract,
+  ExecutionResult,
   ExtendedContractData,
   ExtendedNote,
   FunctionCall,
@@ -17,8 +16,10 @@ import {
   L2Tx,
   LogFilter,
   MerkleTreeId,
+  NoteAndSlot,
   NoteFilter,
   PXE,
+  PackedArguments,
   SimulationError,
   Tx,
   TxExecutionRequest,
@@ -26,13 +27,11 @@ import {
   TxL2Logs,
   TxReceipt,
   TxStatus,
-  getNewContractPublicFunctions,
-  isNoirCallStackUnresolved,
-  ExecutionResult,
   collectEncryptedLogs,
   collectEnqueuedPublicFunctionCalls,
   collectUnencryptedLogs,
-  AppExecutionResult,
+  getNewContractPublicFunctions,
+  isNoirCallStackUnresolved,
 } from '@aztec/circuit-types';
 import { TxPXEProcessingStats } from '@aztec/circuit-types/stats';
 import {
@@ -47,7 +46,7 @@ import {
   PublicCallRequest,
 } from '@aztec/circuits.js';
 import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/abis';
-import { DecodedReturn, encodeArguments } from '@aztec/foundation/abi';
+import { DecodedReturn, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { SerialQueue } from '@aztec/foundation/fifo';
@@ -729,14 +728,20 @@ export class PXEService implements PXE {
   /**
    * Simulates the execution of a transaction / app circuit while stripping unnecessary data
    * @dev in the future, this will be a proven result
-   * 
-   * @param txRequest - the request to execute the transaction 
+   *
+   * @param txRequest - the request to execute the transaction
    * @returns - a chopped version of an ExecutionResult containing the bare minimum info needed to prove a kernel circuit
    */
-  public async simulateAppCircuit(txRequest: TxExecutionRequest): Promise<AppExecutionResult> {
-    const { contractAddress, functionArtifact, portalContract } = await this.#getSimulationParameters(txRequest);
+  public async simulateAppCircuit(
+    argsHash: Fr,
+    args: PackedArguments[],
+    selector: FunctionSelector,
+    executionNotes: NoteAndSlot[],
+    targetContractAddress: AztecAddress,
+    sideEffectCounter: number,
+  ): Promise<AppExecutionResult> {
     try {
-      const result = await this.simulator.run(txRequest, functionArtifact, contractAddress, portalContract);
+      const result = await this.simulator.runNested(argsHash, args, selector, executionNotes, targetContractAddress, sideEffectCounter);
       this.log('Simulation completed!');
       // console.log("Simulated Execution Result: ", result);
       return AppExecutionResult.fromExecutionResult(result);
@@ -750,7 +755,7 @@ export class PXEService implements PXE {
 
   /**
    * Functionally just splits the simulateAndProve function into two parts
-   * 
+   *
    * @param request - the request to execute the transaction
    * @param result - the result of the transaction execution
    * @returns - a transaction ready to broadcast
@@ -765,7 +770,7 @@ export class PXEService implements PXE {
     const encryptedLogs = new TxL2Logs(collectEncryptedLogs(executionResult));
     const unencryptedLogs = new TxL2Logs(collectUnencryptedLogs(executionResult));
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(executionResult);
-    const extendedContractData = ExtendedContractData.empty()
+    const extendedContractData = ExtendedContractData.empty();
     // HACK(#1639): Manually patches the ordering of the public call stack
     // TODO(#757): Enforce proper ordering of enqueued public calls
     await this.patchPublicCallStackOrdering(publicInputs, enqueuedPublicFunctions);
