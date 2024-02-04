@@ -1,4 +1,13 @@
-import { AuthWitness, FunctionL2Logs, L1NotePayload, Note, UnencryptedL2Log, ExecutionResult, NoteAndSlot } from '@aztec/circuit-types';
+import {
+  AppExecutionResult,
+  AuthWitness,
+  ExecutionResult,
+  FunctionL2Logs,
+  L1NotePayload,
+  Note,
+  NoteAndSlot,
+  UnencryptedL2Log,
+} from '@aztec/circuit-types';
 import {
   BlockHeader,
   CallContext,
@@ -12,7 +21,7 @@ import {
 } from '@aztec/circuits.js';
 import { computeUniqueCommitment, siloCommitment } from '@aztec/circuits.js/abis';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { FunctionAbi, FunctionArtifact, countArgumentsSize } from '@aztec/foundation/abi';
+import { FunctionAbi, FunctionArtifact, countArgumentsSize, decodeReturnValues } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -71,6 +80,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     public readonly noteCache: ExecutionNoteCache,
     protected readonly db: DBOracle,
     private readonly curve: Grumpkin,
+    private cachedSimulationStack: AppExecutionResult[] = [],
     protected log = createDebugLogger('aztec:simulator:client_execution_context'),
   ) {
     super(contractAddress, blockHeader, authWitnesses, db, undefined, log);
@@ -308,7 +318,54 @@ export class ClientExecutionContext extends ViewDataOracle {
       `Calling private function ${this.contractAddress}:${functionSelector} from ${this.callContext.storageContractAddress}`,
     );
 
+    console.log('Flag 1');
+
+    // console.log("argshash: ", {
+    //   outer: this.argsHash.toString(),
+    //   inner: argsHash.toString(),
+    // });
+    // console.log("Call context:",
+    // {
+    //   functionSelector: this.callContext.functionSelector.toString(),
+    //   storageContractAddress: this.callContext.storageContractAddress.toString(),
+    //   msgSender: this.callContext.msgSender.toString(),
+
+    // });
+    // console.log("Packed Args Cache: ", this.packedArgsCache.cache);
+    // console.log("Execution note cache:" , {
+    //   notes: this.noteCache.newNotes,
+    //   nullifiers: this.noteCache.nullifiers
+    // });
+
     const targetArtifact = await this.db.getFunctionArtifact(targetContractAddress, functionSelector);
+    // check if the simulation cache has a valid result for this call (pops even if it is invalid)
+    const cachedSimulation = this.cachedSimulationStack.pop();
+    if (cachedSimulation) {
+      const simulationArgsHash = cachedSimulation.callStackItem.publicInputs.argsHash;
+      const simulationFunctionSelector = cachedSimulation.callStackItem.functionData.selector;
+      /// ensure the simulation result is valid for the current call
+      /// note: not infallible for guaranteeing ordering of calls if the same function is called multiple times with same params (i.e. turn(Field))
+      if (
+        simulationArgsHash.equals(argsHash) &&
+        simulationFunctionSelector.toString() === functionSelector.toString()
+      ) {
+        // cached simulation is usable, convert app execution request to execution result
+        this.log(`Found cached simulation for ${this.contractAddress}:${functionSelector}`);
+        const decodedReturn = decodeReturnValues(
+          targetArtifact,
+          cachedSimulation.callStackItem.publicInputs.returnValues,
+        );
+        console.log("return values: ",  cachedSimulation.callStackItem.publicInputs.returnValues);
+        console.log("Artifact: ", targetArtifact);
+        console.log("Decoded return: ", decodedReturn);
+        const childExecutionResult = cachedSimulation.toExecutionResult(decodedReturn);
+        this.nestedExecutions.push(childExecutionResult);
+        return childExecutionResult.callStackItem;
+      }
+    }
+
+    console.log("Flag 2");
+    // continue with standard execution logic if cached simulation is not returned
     const targetFunctionData = FunctionData.fromAbi(targetArtifact);
 
     const derivedTxContext = new TxContext(
@@ -347,9 +404,10 @@ export class ClientExecutionContext extends ViewDataOracle {
       targetContractAddress,
       targetFunctionData,
     );
+    console.log("In side effect counter: ", sideffectCounter);
+    console.log("out side effect counter: ", childExecutionResult.callStackItem.publicInputs.endSideEffectCounter);
 
     this.nestedExecutions.push(childExecutionResult);
-
     return childExecutionResult.callStackItem;
   }
 

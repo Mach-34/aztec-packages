@@ -739,11 +739,11 @@ export class PXEService implements PXE {
     nullified: boolean[],
     targetContractAddress: AztecAddress,
     sideEffectCounter: number,
+      cachedSimulations: AppExecutionResult[] = [],
   ): Promise<AppExecutionResult> {
     try {
-      const result = await this.simulator.runNested(args, selector, executionNotes, nullified, targetContractAddress, sideEffectCounter);
+      const result = await this.simulator.runNested(args, selector, executionNotes, nullified, targetContractAddress, sideEffectCounter, cachedSimulations);
       this.log('Simulation completed!');
-      // console.log("Simulated Execution Result: ", result);
       return AppExecutionResult.fromExecutionResult(result);
     } catch (err) {
       if (err instanceof SimulationError) {

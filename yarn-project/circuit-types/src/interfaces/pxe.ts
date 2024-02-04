@@ -281,6 +281,7 @@ export interface PXE {
     nullified: boolean[],
     targetContractAddress: AztecAddress,
     sideEffectCounter: number,
+    cachedSimulations: AppExecutionResult[],
   ): Promise<AppExecutionResult>;
 
   /**

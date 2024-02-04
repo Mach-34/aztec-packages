@@ -1,5 +1,6 @@
-import { PrivateCallStackItem, PublicCallRequest, ReadRequestMembershipWitness } from '@aztec/circuits.js';
+import { PrivateCallStackItem, PublicCallRequest, ReadRequestMembershipWitness, } from '@aztec/circuits.js';
 import { FunctionL2Logs } from '@aztec/circuit-types';
+import { DecodedReturn } from '@aztec/foundation/abi';
 import { ExecutionResult, NoteAndSlot, ACVMField } from './execution_result.js';
 
 /**
@@ -32,9 +33,10 @@ export class AppExecutionResult {
      * @dev removes nested executions as this is intended to be used with functions that don't call other functions for now
      * @dev acir and vkey should be maintained out of channel
      * 
+     * @params return: DecodedReturn - the return values of the executed function, can be decoded from callStackItem by client execution context
      * @returns - partially mocked execution result (sufficient for Kernel Circuit Proving)
      */
-    public toExecutionResult(): ExecutionResult {
+    public toExecutionResult(returnValues: DecodedReturn = []): ExecutionResult {
         return {
             acir: Buffer.from([0x00]),
             vk: this.vk,
@@ -42,7 +44,7 @@ export class AppExecutionResult {
             callStackItem: this.callStackItem,
             readRequestPartialWitnesses: this.readRequestPartialWitnesses,
             newNotes: this.newNotes,
-            returnValues: [],
+            returnValues,
             nestedExecutions: this.nestedExecutions.map(ne => ne.toExecutionResult()),
             enqueuedPublicFunctionCalls: this.enqueuedPublicFunctionCalls,
             encryptedLogs: this.encryptedLogs,

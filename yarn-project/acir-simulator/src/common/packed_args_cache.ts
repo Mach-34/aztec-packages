@@ -5,7 +5,7 @@ import { Fr } from '@aztec/circuits.js';
  * A cache for packed arguments during transaction execution.
  */
 export class PackedArgsCache {
-  private cache: Map<bigint, Fr[]>;
+  public cache: Map<bigint, Fr[]>;
 
   constructor(initialArguments: PackedArguments[] = []) {
     this.cache = new Map();

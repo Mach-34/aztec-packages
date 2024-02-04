@@ -1,4 +1,5 @@
 import {
+  AppExecutionResult,
   AuthWitness,
   AztecNode,
   ExecutionResult,
@@ -84,6 +85,7 @@ export class AcirSimulator {
     nullified: boolean[],
     targetContractAddress: AztecAddress,
     sideEffectCounter: number,
+    cachedSimulations: AppExecutionResult[] = [],
   ): Promise<ExecutionResult> {
     // hardcode chainId and version for now
     const chainId = Fr.fromString('0x7a69'); // 31337
@@ -106,6 +108,8 @@ export class AcirSimulator {
       sideEffectCounter,
     );
 
+    console.log('SIMULATOR: ', cachedSimulations);
+
     const context = new ClientExecutionContext(
       targetContractAddress,
       args.hash,
@@ -117,12 +121,14 @@ export class AcirSimulator {
       new ExecutionNoteCache(),
       this.db,
       new Grumpkin(),
+      cachedSimulations,
     );
 
     // build note cache
     if (executionNotes.length !== nullified.length) {
-      throw new Error("Nullifier vector length must match note vector length");
-    };
+      throw new Error('Nullifier vector length must match note vector length');
+    }
+    
     for (let i = 0; i < executionNotes.length; i++) {
       const note = executionNotes[i];
       // compute inner note hash
@@ -135,35 +141,18 @@ export class AcirSimulator {
           targetContractAddress,
           Fr.ZERO,
           note.storageSlot,
-          note.note
+          note.note,
         );
-        await context.notifyNullifiedNote(
-          innerNullifier,
-          innerNoteHash,
-        );
+        await context.notifyNullifiedNote(innerNullifier, innerNoteHash);
       }
     }
 
     const res = await executePrivateFunction(context, targetArtifact, targetContractAddress, targetFunctionData);
-    for (const key of context.noteCache.newNotes.keys()) {
-      for (const note of context.noteCache.newNotes.get(key) ?? []) {
-        console.log('note: ', note.note);
-        console.log('note hash: ', note.innerNoteHash);
-        console.log('nonce: ', note.nonce);
-        console.log('storage slot: ', note.storageSlot);
-        console.log('contract address: ', note.contractAddress);
-        console.log('nullifier: ', note.siloedNullifier);
-        console.log('index: ', note.index);
-        const expectedNullifier = await this.computeInnerNullifier(
-          targetContractAddress,
-          Fr.ZERO,
-          note.storageSlot,
-          note.note,
-        );
-        console.log('Expected nullifeir: ', expectedNullifier);
-      }
-    }
     console.log('nullifiers: ', context.noteCache.nullifiers);
+    console.log('Decoded return: ', res.returnValues);
+    console.log('side effect counter', res.callStackItem.publicInputs.endSideEffectCounter);
+    console.log('new notes: ', res.newNotes);
+    console.log('new nullifiers: ', res.callStackItem.publicInputs.newNullifiers);
 
     return res;
   }
@@ -227,6 +216,12 @@ export class AcirSimulator {
         contractAddress,
         request.functionData,
       );
+      console.log('nullifiers: ', context.noteCache.nullifiers);
+      console.log('Decoded return: ', executionResult.returnValues);
+      console.log('side effect counter', executionResult.callStackItem.publicInputs.endSideEffectCounter);
+      console.log('new notes: ', executionResult.newNotes);
+      console.log('new nullifiers: ', executionResult.callStackItem.publicInputs.newNullifiers);
+      console.log('new commitmenmts: ', executionResult.callStackItem.publicInputs.newCommitments);
       return executionResult;
     } catch (err) {
       throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));
