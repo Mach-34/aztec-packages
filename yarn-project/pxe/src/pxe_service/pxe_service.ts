@@ -523,14 +523,24 @@ export class PXEService implements PXE {
     };
   }
 
-  async #simulate(txRequest: TxExecutionRequest): Promise<ExecutionResult> {
+  async #simulate(
+    txRequest: TxExecutionRequest,
+    cachedSimulations: AppExecutionResult[] = [],
+  ): Promise<ExecutionResult> {
     // TODO - Pause syncing while simulating.
 
     const { contractAddress, functionArtifact, portalContract } = await this.#getSimulationParameters(txRequest);
 
     this.log('Executing simulator...');
     try {
-      const result = await this.simulator.run(txRequest, functionArtifact, contractAddress, portalContract);
+      const result = await this.simulator.run(
+        txRequest,
+        functionArtifact,
+        contractAddress,
+        portalContract,
+        undefined,
+        cachedSimulations,
+      );
       this.log('Simulation completed!');
       return result;
     } catch (err) {
@@ -737,12 +747,22 @@ export class PXEService implements PXE {
     selector: FunctionSelector,
     executionNotes: NoteAndSlot[],
     nullified: boolean[],
+    msgSender: AztecAddress,
     targetContractAddress: AztecAddress,
     sideEffectCounter: number,
-      cachedSimulations: AppExecutionResult[] = [],
+    cachedSimulations: AppExecutionResult[] = [],
   ): Promise<AppExecutionResult> {
     try {
-      const result = await this.simulator.runNested(args, selector, executionNotes, nullified, targetContractAddress, sideEffectCounter, cachedSimulations);
+      const result = await this.simulator.runNested(
+        args,
+        selector,
+        executionNotes,
+        nullified,
+        msgSender,
+        targetContractAddress,
+        sideEffectCounter,
+        cachedSimulations,
+      );
       this.log('Simulation completed!');
       return AppExecutionResult.fromExecutionResult(result);
     } catch (err) {
@@ -760,13 +780,14 @@ export class PXEService implements PXE {
    * @param result - the result of the transaction execution
    * @returns - a transaction ready to broadcast
    */
-  public async proveSimulatedAppCircuits(request: TxExecutionRequest, result: AppExecutionResult): Promise<Tx> {
+  public async proveSimulatedAppCircuits(txRequest: TxExecutionRequest, result: AppExecutionResult): Promise<Tx> {
+    // simulate the entry point with cached execution
     // convert the app circuit into an execution result
-    const executionResult = result.toExecutionResult();
+    const executionResult = await this.#simulate(txRequest, [result]);
     // everything else from #simulateAndProve
     const kernelOracle = new KernelOracle(this.contractDataOracle, this.node);
     const kernelProver = new KernelProver(kernelOracle);
-    const { proof, publicInputs } = await kernelProver.prove(request.toTxRequest(), executionResult);
+    const { proof, publicInputs } = await kernelProver.prove(txRequest.toTxRequest(), executionResult);
     const encryptedLogs = new TxL2Logs(collectEncryptedLogs(executionResult));
     const unencryptedLogs = new TxL2Logs(collectUnencryptedLogs(executionResult));
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(executionResult);

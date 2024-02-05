@@ -83,6 +83,7 @@ export class AcirSimulator {
     functionSelector: FunctionSelector,
     executionNotes: NoteAndSlot[],
     nullified: boolean[],
+    msgSender: AztecAddress,
     targetContractAddress: AztecAddress,
     sideEffectCounter: number,
     cachedSimulations: AppExecutionResult[] = [],
@@ -98,7 +99,7 @@ export class AcirSimulator {
     const derivedTxContext = new TxContext(false, false, false, ContractDeploymentData.empty(), chainId, version);
 
     const derivedCallContext = new CallContext(
-      targetContractAddress,
+      msgSender,
       targetContractAddress,
       portalContractAddress,
       FunctionSelector.fromNameAndParameters(targetArtifact.name, targetArtifact.parameters),
@@ -107,8 +108,6 @@ export class AcirSimulator {
       false,
       sideEffectCounter,
     );
-
-    console.log('SIMULATOR: ', cachedSimulations);
 
     const context = new ClientExecutionContext(
       targetContractAddress,
@@ -130,6 +129,7 @@ export class AcirSimulator {
     }
     
     for (let i = 0; i < executionNotes.length; i++) {
+      // todo: cache nullifiers and pass current note instead of notifying of nullification for all
       const note = executionNotes[i];
       // compute inner note hash
       const innerNoteHash = await this.computeInnerNoteHash(targetContractAddress, note.storageSlot, note.note);
@@ -147,14 +147,12 @@ export class AcirSimulator {
       }
     }
 
-    const res = await executePrivateFunction(context, targetArtifact, targetContractAddress, targetFunctionData);
-    console.log('nullifiers: ', context.noteCache.nullifiers);
-    console.log('Decoded return: ', res.returnValues);
-    console.log('side effect counter', res.callStackItem.publicInputs.endSideEffectCounter);
-    console.log('new notes: ', res.newNotes);
-    console.log('new nullifiers: ', res.callStackItem.publicInputs.newNullifiers);
-
-    return res;
+    try {
+      const executionResult = await executePrivateFunction(context, targetArtifact, targetContractAddress, targetFunctionData);
+      return executionResult;
+    } catch (err) {
+      throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));
+    }
   }
 
   /**
@@ -172,6 +170,7 @@ export class AcirSimulator {
     contractAddress: AztecAddress,
     portalContractAddress: EthAddress,
     msgSender = AztecAddress.ZERO,
+    cachedSimulations: AppExecutionResult[] = [],
   ): Promise<ExecutionResult> {
     if (entryPointArtifact.functionType !== FunctionType.SECRET) {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as secret`);
@@ -208,7 +207,9 @@ export class AcirSimulator {
       new ExecutionNoteCache(),
       this.db,
       curve,
+      cachedSimulations
     );
+
     try {
       const executionResult = await executePrivateFunction(
         context,
@@ -216,12 +217,6 @@ export class AcirSimulator {
         contractAddress,
         request.functionData,
       );
-      console.log('nullifiers: ', context.noteCache.nullifiers);
-      console.log('Decoded return: ', executionResult.returnValues);
-      console.log('side effect counter', executionResult.callStackItem.publicInputs.endSideEffectCounter);
-      console.log('new notes: ', executionResult.newNotes);
-      console.log('new nullifiers: ', executionResult.callStackItem.publicInputs.newNullifiers);
-      console.log('new commitmenmts: ', executionResult.callStackItem.publicInputs.newCommitments);
       return executionResult;
     } catch (err) {
       throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));
