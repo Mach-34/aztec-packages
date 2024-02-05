@@ -1,4 +1,5 @@
 import {
+  AppExecutionResult,
   AuthWitness,
   ContractData,
   DeployedContract,
@@ -9,15 +10,24 @@ import {
   L2Block,
   L2Tx,
   LogFilter,
+  NoteAndSlot,
   NoteFilter,
   PXE,
+  PackedArguments,
   SyncStatus,
   Tx,
   TxExecutionRequest,
   TxHash,
   TxReceipt,
 } from '@aztec/circuit-types';
-import { AztecAddress, CompleteAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
+import {
+  AztecAddress,
+  CompleteAddress,
+  Fr,
+  FunctionSelector,
+  GrumpkinPrivateKey,
+  PartialAddress,
+} from '@aztec/circuits.js';
 import { NodeInfo } from '@aztec/types/interfaces';
 
 import { Wallet } from '../account/wallet.js';
@@ -115,5 +125,31 @@ export abstract class BaseWallet implements Wallet {
   }
   addAuthWitness(authWitness: AuthWitness) {
     return this.pxe.addAuthWitness(authWitness);
+  }
+
+  simulateAppCircuit(
+    args: PackedArguments,
+    selector: FunctionSelector,
+    executionNotes: NoteAndSlot[],
+    nullified: boolean[],
+    msgSender: AztecAddress,
+    targetContractAddress: AztecAddress,
+    sideEffectCounter: number,
+    cachedSimulations: AppExecutionResult[] = [],
+  ): Promise<AppExecutionResult> {
+    return this.pxe.simulateAppCircuit(
+      args,
+      selector,
+      executionNotes,
+      nullified,
+      msgSender,
+      targetContractAddress,
+      sideEffectCounter,
+      cachedSimulations,
+    );
+  }
+
+  proveSimulatedAppCircuits(request: TxExecutionRequest, result: AppExecutionResult): Promise<Tx> {
+    return this.pxe.proveSimulatedAppCircuits(request, result);
   }
 }

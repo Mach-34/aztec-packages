@@ -12,7 +12,7 @@ export class ExecutionNoteCache {
    * New notes created in this transaction.
    * This mapping maps from a contract address to the notes in the contract.
    */
-  private newNotes: Map<bigint, NoteData[]> = new Map();
+  public newNotes: Map<bigint, NoteData[]> = new Map();
 
   /**
    * The list of nullifiers created in this transaction.
@@ -20,7 +20,7 @@ export class ExecutionNoteCache {
    * The note which is nullified might be new or not (i.e., was generated in a previous transaction).
    * Note that their value (bigint representation) is used because Frs cannot be looked up in Sets.
    */
-  private nullifiers: Map<bigint, Set<bigint>> = new Map();
+  public nullifiers: Map<bigint, Set<bigint>> = new Map();
 
   /**
    * Add a new note to cache.

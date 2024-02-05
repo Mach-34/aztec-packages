@@ -1,5 +1,15 @@
-import { AztecNode, FunctionCall, Note, TxExecutionRequest } from '@aztec/circuit-types';
-import { CallContext, FunctionData } from '@aztec/circuits.js';
+import {
+  AppExecutionResult,
+  AuthWitness,
+  AztecNode,
+  ExecutionResult,
+  FunctionCall,
+  Note,
+  NoteAndSlot,
+  PackedArguments,
+  TxExecutionRequest,
+} from '@aztec/circuit-types';
+import { CallContext, ContractDeploymentData, FunctionData, TxContext } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import {
   ArrayType,
@@ -20,7 +30,6 @@ import { PackedArgsCache } from '../common/packed_args_cache.js';
 import { ClientExecutionContext } from './client_execution_context.js';
 import { DBOracle } from './db_oracle.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
-import { ExecutionResult } from './execution_result.js';
 import { executePrivateFunction } from './private_execution.js';
 import { executeUnconstrainedFunction } from './unconstrained_execution.js';
 import { ViewDataOracle } from './view_data_oracle.js';
@@ -57,6 +66,96 @@ export class AcirSimulator {
   }
 
   /**
+   * Runs nested execution
+   * @dev only supports inter contract calls (target = current contract)
+   * @dev no support for auth witness
+   * @dev expects all logs to be issued by same contract
+   *
+   * @param args
+   * @param executionNotes
+   * @param targetContractAddress
+   * @param functionSelector
+   * @param argsHash
+   * @param sideEffectCounter
+   */
+  public async runNested(
+    args: PackedArguments,
+    functionSelector: FunctionSelector,
+    executionNotes: NoteAndSlot[],
+    nullified: boolean[],
+    msgSender: AztecAddress,
+    targetContractAddress: AztecAddress,
+    sideEffectCounter: number,
+    cachedSimulations: AppExecutionResult[] = [],
+  ): Promise<ExecutionResult> {
+    // hardcode chainId and version for now
+    const chainId = Fr.fromString('0x7a69'); // 31337
+    const version = Fr.fromString('0x01');
+
+    const targetArtifact = await this.db.getFunctionArtifact(targetContractAddress, functionSelector);
+    const targetFunctionData = FunctionData.fromAbi(targetArtifact);
+    const portalContractAddress = await this.db.getPortalContractAddress(targetContractAddress);
+
+    const derivedTxContext = new TxContext(false, false, false, ContractDeploymentData.empty(), chainId, version);
+
+    const derivedCallContext = new CallContext(
+      msgSender,
+      targetContractAddress,
+      portalContractAddress,
+      FunctionSelector.fromNameAndParameters(targetArtifact.name, targetArtifact.parameters),
+      false,
+      false,
+      false,
+      sideEffectCounter,
+    );
+
+    const context = new ClientExecutionContext(
+      targetContractAddress,
+      args.hash,
+      derivedTxContext,
+      derivedCallContext,
+      await this.db.getBlockHeader(),
+      [new AuthWitness(Fr.ZERO, [Fr.ZERO])],
+      PackedArgsCache.create([args]),
+      new ExecutionNoteCache(),
+      this.db,
+      new Grumpkin(),
+      cachedSimulations,
+    );
+
+    // build note cache
+    if (executionNotes.length !== nullified.length) {
+      throw new Error('Nullifier vector length must match note vector length');
+    }
+    
+    for (let i = 0; i < executionNotes.length; i++) {
+      // todo: cache nullifiers and pass current note instead of notifying of nullification for all
+      const note = executionNotes[i];
+      // compute inner note hash
+      const innerNoteHash = await this.computeInnerNoteHash(targetContractAddress, note.storageSlot, note.note);
+      // add to cache
+      context.notifyCreatedNote(note.storageSlot, note.note.items, innerNoteHash);
+      // nullify if necessary
+      if (nullified[i]) {
+        const innerNullifier = await this.computeInnerNullifier(
+          targetContractAddress,
+          Fr.ZERO,
+          note.storageSlot,
+          note.note,
+        );
+        await context.notifyNullifiedNote(innerNullifier, innerNoteHash);
+      }
+    }
+
+    try {
+      const executionResult = await executePrivateFunction(context, targetArtifact, targetContractAddress, targetFunctionData);
+      return executionResult;
+    } catch (err) {
+      throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));
+    }
+  }
+
+  /**
    * Runs a private function.
    * @param request - The transaction request.
    * @param entryPointArtifact - The artifact of the entry point function.
@@ -71,6 +170,7 @@ export class AcirSimulator {
     contractAddress: AztecAddress,
     portalContractAddress: EthAddress,
     msgSender = AztecAddress.ZERO,
+    cachedSimulations: AppExecutionResult[] = [],
   ): Promise<ExecutionResult> {
     if (entryPointArtifact.functionType !== FunctionType.SECRET) {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as secret`);
@@ -107,6 +207,7 @@ export class AcirSimulator {
       new ExecutionNoteCache(),
       this.db,
       curve,
+      cachedSimulations
     );
 
     try {

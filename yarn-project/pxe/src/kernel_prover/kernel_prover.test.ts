@@ -1,5 +1,4 @@
-import { ExecutionResult, NoteAndSlot } from '@aztec/acir-simulator';
-import { FunctionL2Logs, Note } from '@aztec/circuit-types';
+import { ExecutionResult, FunctionL2Logs, Note, NoteAndSlot } from '@aztec/circuit-types';
 import {
   FunctionData,
   FunctionSelector,
@@ -38,11 +37,9 @@ describe('Kernel Prover', () => {
 
   const notesAndSlots: NoteAndSlot[] = Array(10)
     .fill(null)
-    .map(() => ({
-      note: new Note([Fr.random(), Fr.random(), Fr.random()]),
-      storageSlot: Fr.random(),
-      owner: { x: Fr.random(), y: Fr.random() },
-    }));
+    .map(() => {
+      return new NoteAndSlot(new Note([Fr.random(), Fr.random(), Fr.random()]), Fr.random());
+    });
 
   const createFakeSiloedCommitment = (commitment: Fr) => new Fr(commitment.value + 1n);
   const generateFakeCommitment = (noteAndSlot: NoteAndSlot) => noteAndSlot.note.items[0];

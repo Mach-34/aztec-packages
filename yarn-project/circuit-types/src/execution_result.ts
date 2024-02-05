@@ -3,16 +3,27 @@ import { PrivateCallStackItem, PublicCallRequest, ReadRequestMembershipWitness }
 import { DecodedReturn } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 
-import { ACVMField } from '../acvm/index.js';
+/**
+ * ACVMField
+ */
+export type ACVMField = string;
 
 /**
  * The contents of a new note.
  */
-export interface NoteAndSlot {
-  /** The note. */
-  note: Note;
-  /** The storage slot of the note. */
-  storageSlot: Fr;
+export class NoteAndSlot {
+  constructor(public readonly note: Note, public readonly storageSlot: Fr) {}
+
+  public toJSON(): object {
+    return {
+      note: this.note.toString(),
+      storageSlot: this.storageSlot.toString(),
+    };
+  }
+
+  public static fromJSON(obj: any): NoteAndSlot {
+    return new NoteAndSlot(Note.fromString(obj.note), Fr.fromString(obj.storageSlot));
+  }
 }
 
 /**

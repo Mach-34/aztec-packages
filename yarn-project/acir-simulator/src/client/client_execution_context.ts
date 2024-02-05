@@ -1,4 +1,13 @@
-import { AuthWitness, FunctionL2Logs, L1NotePayload, Note, UnencryptedL2Log } from '@aztec/circuit-types';
+import {
+  AppExecutionResult,
+  AuthWitness,
+  ExecutionResult,
+  FunctionL2Logs,
+  L1NotePayload,
+  Note,
+  NoteAndSlot,
+  UnencryptedL2Log,
+} from '@aztec/circuit-types';
 import {
   BlockHeader,
   CallContext,
@@ -12,7 +21,7 @@ import {
 } from '@aztec/circuits.js';
 import { computeUniqueCommitment, siloCommitment } from '@aztec/circuits.js/abis';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { FunctionAbi, FunctionArtifact, countArgumentsSize } from '@aztec/foundation/abi';
+import { FunctionAbi, FunctionArtifact, countArgumentsSize, decodeReturnValues } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -27,7 +36,6 @@ import {
 import { PackedArgsCache } from '../common/packed_args_cache.js';
 import { DBOracle } from './db_oracle.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
-import { ExecutionResult, NoteAndSlot } from './execution_result.js';
 import { pickNotes } from './pick_notes.js';
 import { executePrivateFunction } from './private_execution.js';
 import { ViewDataOracle } from './view_data_oracle.js';
@@ -69,9 +77,10 @@ export class ClientExecutionContext extends ViewDataOracle {
     /** List of transient auth witnesses to be used during this simulation */
     protected readonly authWitnesses: AuthWitness[],
     private readonly packedArgsCache: PackedArgsCache,
-    private readonly noteCache: ExecutionNoteCache,
+    public readonly noteCache: ExecutionNoteCache,
     protected readonly db: DBOracle,
     private readonly curve: Grumpkin,
+    private cachedSimulationStack: AppExecutionResult[] = [],
     protected log = createDebugLogger('aztec:simulator:client_execution_context'),
   ) {
     super(contractAddress, blockHeader, authWitnesses, db, undefined, log);
@@ -254,10 +263,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       siloedNullifier: undefined, // Siloed nullifier cannot be known for newly created note.
       innerNoteHash,
     });
-    this.newNotes.push({
-      storageSlot,
-      note,
-    });
+    this.newNotes.push(new NoteAndSlot(note, storageSlot));
   }
 
   /**
@@ -313,6 +319,33 @@ export class ClientExecutionContext extends ViewDataOracle {
     );
 
     const targetArtifact = await this.db.getFunctionArtifact(targetContractAddress, functionSelector);
+    // check if the simulation cache has a valid result for this call (pops even if it is invalid)
+    const cachedSimulation = this.cachedSimulationStack.pop();
+    if (cachedSimulation) {
+      const simulationArgsHash = cachedSimulation.callStackItem.publicInputs.argsHash;
+      const simulationFunctionSelector = cachedSimulation.callStackItem.functionData.selector;
+      /// ensure the simulation result is valid for the current call
+      /// note: not infallible for guaranteeing ordering of calls if the same function is called multiple times with same params (i.e. turn(Field))
+      if (
+        simulationArgsHash.equals(argsHash) &&
+        simulationFunctionSelector.toString() === functionSelector.toString()
+      ) {
+        // cached simulation is usable, convert app execution request to execution result
+        this.log(`Found cached simulation for ${this.contractAddress}:${functionSelector}`);
+        const decodedReturn = decodeReturnValues(
+          targetArtifact,
+          cachedSimulation.callStackItem.publicInputs.returnValues,
+        );
+        const childExecutionResult = cachedSimulation.toExecutionResult(decodedReturn);
+        this.nestedExecutions.push(childExecutionResult);
+        return childExecutionResult.callStackItem;
+      } else {
+        // cached simulation discarded
+        this.log(`Discarded unsuitable cached simulation for ${this.contractAddress}:${functionSelector}`);
+      }
+    }
+
+    // continue with standard execution logic if cached simulation is not returned
     const targetFunctionData = FunctionData.fromAbi(targetArtifact);
 
     const derivedTxContext = new TxContext(
@@ -353,7 +386,6 @@ export class ClientExecutionContext extends ViewDataOracle {
     );
 
     this.nestedExecutions.push(childExecutionResult);
-
     return childExecutionResult.callStackItem;
   }
 
