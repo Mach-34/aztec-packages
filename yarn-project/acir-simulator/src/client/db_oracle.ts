@@ -1,5 +1,5 @@
-import { L2Block, MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/circuit-types';
-import { BlockHeader, CompleteAddress } from '@aztec/circuits.js';
+import { L2Block, MerkleTreeId, NoteStatus, NullifierMembershipWitness, PublicDataWitness } from '@aztec/circuit-types';
+import { CompleteAddress, Header } from '@aztec/circuits.js';
 import { FunctionArtifactWithDebugMetadata, FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -14,6 +14,15 @@ import { CommitmentsDB } from '../public/db.js';
 export class ContractNotFoundError extends Error {
   constructor(contractAddress: string) {
     super(`DB has no contract with address ${contractAddress}`);
+  }
+}
+
+/**
+ * Error thrown when a contract class is not found in the database.
+ */
+export class ContractClassNotFoundError extends Error {
+  constructor(contractClassId: string) {
+    super(`DB has no contract class with id ${contractClassId}`);
   }
 }
 
@@ -61,9 +70,10 @@ export interface DBOracle extends CommitmentsDB {
    *
    * @param contractAddress - The AztecAddress instance representing the contract address.
    * @param storageSlot - The Fr instance representing the storage slot of the notes.
+   * @param status - The status of notes to fetch.
    * @returns A Promise that resolves to an array of note data.
    */
-  getNotes(contractAddress: AztecAddress, storageSlot: Fr): Promise<NoteData[]>;
+  getNotes(contractAddress: AztecAddress, storageSlot: Fr, status: NoteStatus): Promise<NoteData[]>;
 
   /**
    * Retrieve the artifact information of a specific function within a contract.
@@ -111,9 +121,9 @@ export interface DBOracle extends CommitmentsDB {
    * Retrieve the databases view of the Block Header object.
    * This structure is fed into the circuits simulator and is used to prove against certain historical roots.
    *
-   * @returns A Promise that resolves to a BlockHeader object.
+   * @returns A Promise that resolves to a Header object.
    */
-  getBlockHeader(): Promise<BlockHeader>;
+  getHeader(): Promise<Header>;
 
   /**
    * Fetch the index of the leaf in the respective tree

@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::ops::Deref;
 
 use arena::{Arena, Index};
 use fm::FileId;
@@ -146,6 +147,9 @@ pub struct NodeInterner {
     /// A list of all type aliases that are referenced in the program.
     /// Searched by LSP to resolve [Location]s of [TypeAliasType]s
     pub(crate) type_alias_ref: Vec<(TypeAliasId, Location)>,
+
+    /// Stores the [Location] of a [Type] reference
+    pub(crate) type_ref_locations: Vec<(Type, Location)>,
 }
 
 /// A trait implementation is either a normal implementation that is present in the source
@@ -455,6 +459,7 @@ impl Default for NodeInterner {
             struct_methods: HashMap::new(),
             primitive_methods: HashMap::new(),
             type_alias_ref: Vec::new(),
+            type_ref_locations: Vec::new(),
         };
 
         // An empty block expression is used often, we add this into the `node` on startup
@@ -605,6 +610,11 @@ impl NodeInterner {
     /// Store the type for an interned Identifier
     pub fn push_definition_type(&mut self, definition_id: DefinitionId, typ: Type) {
         self.id_to_type.insert(definition_id.into(), typ);
+    }
+
+    /// Store [Location] of [Type] reference
+    pub fn push_type_ref_location(&mut self, typ: Type, location: Location) {
+        self.type_ref_locations.push((typ, location));
     }
 
     pub fn push_global(&mut self, stmt_id: StmtId, ident: Ident, local_id: LocalModuleId) {
@@ -1033,6 +1043,34 @@ impl NodeInterner {
         Ok(impl_kind)
     }
 
+    /// Given a `ObjectType: TraitId` pair, find all implementations without taking constraints into account or
+    /// applying any type bindings. Useful to look for a specific trait in a type that is used in a macro.
+    pub fn lookup_all_trait_implementations(
+        &self,
+        object_type: &Type,
+        trait_id: TraitId,
+    ) -> Vec<&TraitImplKind> {
+        let trait_impl = self.trait_implementation_map.get(&trait_id);
+
+        trait_impl
+            .map(|trait_impl| {
+                trait_impl
+                    .iter()
+                    .filter_map(|(typ, impl_kind)| match &typ {
+                        Type::Forall(_, typ) => {
+                            if typ.deref() == object_type {
+                                Some(impl_kind)
+                            } else {
+                                None
+                            }
+                        }
+                        _ => None,
+                    })
+                    .collect()
+            })
+            .unwrap_or(vec![])
+    }
+
     /// Similar to `lookup_trait_implementation` but does not apply any type bindings on success.
     pub fn try_lookup_trait_implementation(
         &self,
@@ -1186,7 +1224,6 @@ impl NodeInterner {
     }
 
     /// Adds a trait implementation to the list of known implementations.
-    #[tracing::instrument(skip(self))]
     pub fn add_trait_implementation(
         &mut self,
         object_type: Type,
@@ -1255,7 +1292,6 @@ impl NodeInterner {
         force_type_check: bool,
     ) -> Option<FuncId> {
         let methods = self.struct_methods.get(&(id, method_name.to_owned()));
-
         // If there is only one method, just return it immediately.
         // It will still be typechecked later.
         if !force_type_check {

@@ -1,6 +1,7 @@
 #pragma once
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include "bigint_constraint.hpp"
 #include "blake2s_constraint.hpp"
 #include "blake3_constraint.hpp"
 #include "block_constraint.hpp"
@@ -21,6 +22,12 @@ namespace acir_format {
 struct AcirFormat {
     // The number of witnesses in the circuit
     uint32_t varnum;
+    // Specifies whether a prover that produces SNARK recursion friendly proofs should be used.
+    // The proof produced when this flag is true should be friendly for recursive verification inside
+    // of another SNARK. For example, a recursive friendly proof may use Blake3Pedersen for
+    // hashing in its transcript, while we still want a prove that uses Keccak for its transcript in order
+    // to be able to verify SNARKs on Ethereum.
+    bool recursive;
 
     std::vector<uint32_t> public_inputs;
 
@@ -39,8 +46,10 @@ struct AcirFormat {
     std::vector<PedersenHashConstraint> pedersen_hash_constraints;
     std::vector<FixedBaseScalarMul> fixed_base_scalar_mul_constraints;
     std::vector<EcAdd> ec_add_constraints;
-    std::vector<EcDouble> ec_double_constraints;
     std::vector<RecursionConstraint> recursion_constraints;
+    std::vector<BigIntFromLeBytes> bigint_from_le_bytes_constraints;
+    std::vector<BigIntToLeBytes> bigint_to_le_bytes_constraints;
+    std::vector<BigIntOperation> bigint_operations;
 
     // A standard plonk arithmetic constraint, as defined in the poly_triple struct, consists of selector values
     // for q_M,q_L,q_R,q_O,q_C and indices of three variables taking the role of left, right and output wire
@@ -67,9 +76,13 @@ struct AcirFormat {
                    pedersen_constraints,
                    pedersen_hash_constraints,
                    fixed_base_scalar_mul_constraints,
+                   ec_add_constraints,
                    recursion_constraints,
                    constraints,
-                   block_constraints);
+                   block_constraints,
+                   bigint_from_le_bytes_constraints,
+                   bigint_to_le_bytes_constraints,
+                   bigint_operations);
 
     friend bool operator==(AcirFormat const& lhs, AcirFormat const& rhs) = default;
 };

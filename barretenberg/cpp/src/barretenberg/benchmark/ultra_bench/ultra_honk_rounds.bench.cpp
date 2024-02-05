@@ -27,7 +27,7 @@ enum {
  * @param prover - The ultrahonk prover.
  * @param index - The pass to measure.
  **/
-BBERG_PROFILE static void test_round_inner(State& state, honk::UltraProver& prover, size_t index) noexcept
+BBERG_PROFILE static void test_round_inner(State& state, UltraProver& prover, size_t index) noexcept
 {
     auto time_if_index = [&](size_t target_index, auto&& func) -> void {
         if (index == target_index) {
@@ -53,10 +53,10 @@ BBERG_PROFILE static void test_round(State& state, size_t index) noexcept
 
     for (auto _ : state) {
         state.PauseTiming();
-        honk::UltraComposer composer;
+        UltraComposer composer;
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/761) benchmark both sparse and dense circuits
-        honk::UltraProver prover = bb::mock_proofs::get_prover(
-            composer, &bb::mock_proofs::generate_ecdsa_verification_test_circuit<UltraCircuitBuilder>, 10);
+        UltraProver prover = bb::mock_proofs::get_prover(
+            composer, &bb::stdlib::generate_ecdsa_verification_test_circuit<UltraCircuitBuilder>, 10);
         test_round_inner(state, prover, index);
         state.ResumeTiming();
         // NOTE: google bench is very finnicky, must end in ResumeTiming() for correctness
@@ -78,3 +78,5 @@ ROUND_BENCHMARK(LOG_DERIVATIVE_INVERSE)->Iterations(1);
 ROUND_BENCHMARK(GRAND_PRODUCT_COMPUTATION)->Iterations(1);
 ROUND_BENCHMARK(RELATION_CHECK);
 ROUND_BENCHMARK(ZEROMORPH);
+
+BENCHMARK_MAIN();

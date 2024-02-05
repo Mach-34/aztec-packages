@@ -1,17 +1,24 @@
-use crate::address::EthAddress;
-use crate::constants::{
-    CONTRACT_DEPLOYMENT_DATA_LENGTH,
-    GENERATOR_INDEX__CONTRACT_DEPLOYMENT_DATA,
+use crate::{
+    address::EthAddress,
+    contract_class::ContractClassId,
+    constants::{
+        CONTRACT_DEPLOYMENT_DATA_LENGTH,
+        GENERATOR_INDEX__CONTRACT_DEPLOYMENT_DATA,
+    },
+    grumpkin_point::GrumpkinPoint,
+    hash::pedersen_hash,
+    traits::{
+        Deserialize,
+        Hash,
+        Serialize,
+    },
 };
-use crate::hash::pedersen_hash;
-use crate::grumpkin_point::GrumpkinPoint;
-use crate::traits::Hash;
 
 // docs:start:contract-deployment-data
 struct ContractDeploymentData {
-    deployer_public_key : GrumpkinPoint,
-    constructor_vk_hash : Field,
-    function_tree_root : Field,
+    public_key : GrumpkinPoint,
+    initialization_hash : Field,
+    contract_class_id : ContractClassId,
     contract_address_salt : Field,
     portal_contract_address : EthAddress,
 }
@@ -23,24 +30,40 @@ impl Hash for ContractDeploymentData {
     }
 }
 
-impl ContractDeploymentData {
+impl Serialize<CONTRACT_DEPLOYMENT_DATA_LENGTH> for ContractDeploymentData {
     fn serialize(self) -> [Field; CONTRACT_DEPLOYMENT_DATA_LENGTH] {
         [
-            self.deployer_public_key.x,
-            self.deployer_public_key.y,
-            self.constructor_vk_hash,
-            self.function_tree_root,
+            self.public_key.x,
+            self.public_key.y,
+            self.initialization_hash,
+            self.contract_class_id.to_field(),
             self.contract_address_salt,
             self.portal_contract_address.to_field(),
         ]
     }
+}
 
+impl Deserialize<CONTRACT_DEPLOYMENT_DATA_LENGTH> for ContractDeploymentData {
+    fn deserialize(serialized: [Field; CONTRACT_DEPLOYMENT_DATA_LENGTH]) -> Self {
+        Self {
+            public_key: GrumpkinPoint {
+                x: serialized[0],
+                y: serialized[1],
+            },
+            initialization_hash: serialized[2],
+            contract_class_id: ContractClassId::from_field(serialized[3]),
+            contract_address_salt: serialized[4],
+            portal_contract_address: EthAddress::from_field(serialized[5]),
+        }
+    }
+}
+
+impl ContractDeploymentData {
     fn assert_is_zero(self) {
-        self.deployer_public_key.assert_is_zero();
-        assert(self.constructor_vk_hash == 0);
-        assert(self.function_tree_root == 0);
+        self.public_key.assert_is_zero();
+        assert(self.initialization_hash == 0);
+        self.contract_class_id.assert_is_zero();
         assert(self.contract_address_salt == 0);
         self.portal_contract_address.assert_is_zero();
     }
-
 }

@@ -191,10 +191,18 @@ impl<'a> Resolver<'a> {
         self.add_generics(&func.def.generics);
         self.trait_bounds = func.def.where_clause.clone();
 
+        let is_low_level_or_oracle = func
+            .attributes()
+            .function
+            .as_ref()
+            .map_or(false, |func| func.is_low_level() || func.is_oracle());
         let (hir_func, func_meta) = self.intern_function(func, func_id);
         let func_scope_tree = self.scopes.end_function();
 
-        self.check_for_unused_variables_in_scope_tree(func_scope_tree);
+        // The arguments to low-level and oracle functions are always unused so we do not produce warnings for them.
+        if !is_low_level_or_oracle {
+            self.check_for_unused_variables_in_scope_tree(func_scope_tree);
+        }
 
         self.trait_bounds.clear();
         (hir_func, func_meta, self.errors)
@@ -406,7 +414,7 @@ impl<'a> Resolver<'a> {
             FunctionKind::Builtin | FunctionKind::LowLevel | FunctionKind::Oracle => {
                 HirFunction::empty()
             }
-            FunctionKind::Normal => {
+            FunctionKind::Normal | FunctionKind::Recursive => {
                 let expr_id = self.intern_block(func.def.body);
                 self.interner.push_expr_location(expr_id, func.def.span, self.file);
                 HirFunction::unchecked_from_expr(expr_id)
@@ -449,7 +457,7 @@ impl<'a> Resolver<'a> {
     fn resolve_type_inner(&mut self, typ: UnresolvedType, new_variables: &mut Generics) -> Type {
         use UnresolvedTypeData::*;
 
-        match typ.typ {
+        let resolved_type = match typ.typ {
             FieldElement => Type::FieldElement,
             Array(size, elem) => {
                 let elem = Box::new(self.resolve_type_inner(*elem, new_variables));
@@ -510,7 +518,18 @@ impl<'a> Resolver<'a> {
                 Type::MutableReference(Box::new(self.resolve_type_inner(*element, new_variables)))
             }
             Parenthesized(typ) => self.resolve_type_inner(*typ, new_variables),
+        };
+
+        if let Type::Struct(_, _) = resolved_type {
+            if let Some(unresolved_span) = typ.span {
+                // Record the location of the type reference
+                self.interner.push_type_ref_location(
+                    resolved_type.clone(),
+                    Location::new(unresolved_span, self.file),
+                );
+            }
         }
+        resolved_type
     }
 
     fn find_generic(&self, target_name: &str) -> Option<&(Rc<String>, TypeVariable, Span)> {
@@ -714,6 +733,7 @@ impl<'a> Resolver<'a> {
         if resolved_type.is_nested_slice() {
             self.errors.push(ResolverError::NestedSlices { span: span.unwrap() });
         }
+
         resolved_type
     }
 
@@ -888,6 +908,13 @@ impl<'a> Resolver<'a> {
                 position: PubPosition::ReturnType,
             });
         }
+        let is_low_level_function =
+            func.attributes().function.as_ref().map_or(false, |func| func.is_low_level());
+        if !self.path_resolver.module_id().krate.is_stdlib() && is_low_level_function {
+            let error =
+                ResolverError::LowLevelFunctionOutsideOfStdlib { ident: func.name_ident().clone() };
+            self.push_err(error);
+        }
 
         // 'pub' is required on return types for entry point functions
         if self.is_entry_point_function(func)
@@ -895,6 +922,12 @@ impl<'a> Resolver<'a> {
             && func.def.return_visibility == Visibility::Private
         {
             self.push_err(ResolverError::NecessaryPub { ident: func.name_ident().clone() });
+        }
+        // '#[recursive]' attribute is only allowed for entry point functions
+        if !self.is_entry_point_function(func) && func.kind == FunctionKind::Recursive {
+            self.push_err(ResolverError::MisplacedRecursiveAttribute {
+                ident: func.name_ident().clone(),
+            });
         }
 
         if !self.distinct_allowed(func)
@@ -1438,6 +1471,8 @@ impl<'a> Resolver<'a> {
                 HirExpression::MemberAccess(HirMemberAccess {
                     lhs: self.resolve_expression(access.lhs),
                     rhs: access.rhs,
+                    // This is only used when lhs is a reference and we want to return a reference to rhs
+                    is_offset: false,
                 })
             }
             ExpressionKind::Error => HirExpression::Error,
@@ -1734,7 +1769,8 @@ impl<'a> Resolver<'a> {
 
     // This resolves a static trait method T::trait_method by iterating over the where clause
     //
-    // Returns the trait method, object type, and the trait generics.
+    // Returns the trait method, trait constraint, and whether the impl is assumed from a where
+    // clause. This is always true since this helper searches where clauses for a generic constraint.
     // E.g. `t.method()` with `where T: Foo<Bar>` in scope will return `(Foo::method, T, vec![Bar])`
     fn resolve_trait_method_by_named_generic(
         &mut self,
@@ -1777,7 +1813,7 @@ impl<'a> Resolver<'a> {
 
     // Try to resolve the given trait method path.
     //
-    // Returns the trait method, object type, and the trait generics.
+    // Returns the trait method, trait constraint, and whether the impl is assumed to exist by a where clause or not
     // E.g. `t.method()` with `where T: Foo<Bar>` in scope will return `(Foo::method, T, vec![Bar])`
     fn resolve_trait_generic_path(
         &mut self,

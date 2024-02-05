@@ -63,7 +63,6 @@ pub(crate) fn optimize_into_acir(
         .run_pass(Ssa::mem2reg, "After Mem2Reg:")
         .run_pass(Ssa::fold_constants, "After Constant Folding:")
         .run_pass(Ssa::dead_instruction_elimination, "After Dead Instruction Elimination:")
-        .run_pass(Ssa::bubble_up_constrains, "After Constraint Bubbling:")
         .finish();
 
     let brillig = ssa.to_brillig(print_brillig_trace);
@@ -86,6 +85,7 @@ pub fn create_circuit(
     enable_brillig_logging: bool,
 ) -> Result<(Circuit, DebugInfo, Vec<Witness>, Vec<Witness>, Vec<SsaReport>), RuntimeError> {
     let func_sig = program.main_function_signature.clone();
+    let recursive = program.recursive;
     let mut generated_acir =
         optimize_into_acir(program, enable_ssa_logging, enable_brillig_logging)?;
     let opcodes = generated_acir.take_opcodes();
@@ -112,6 +112,7 @@ pub fn create_circuit(
         public_parameters,
         return_values,
         assert_messages: assert_messages.into_iter().collect(),
+        recursive,
     };
 
     // This converts each im::Vector in the BTreeMap to a Vec

@@ -24,17 +24,12 @@ contract Token {
         context::{PrivateContext, PublicContext, Context},
         hash::{compute_secret_hash},
         state_vars::{map::Map, public_state::PublicState, set::Set},
-        types::type_serialization::{
-                field_serialization::{FieldSerializationMethods, FIELD_SERIALIZED_LEN},
-                bool_serialization::{BoolSerializationMethods, BOOL_SERIALIZED_LEN},
-                address_serialization::{AddressSerializationMethods, AZTEC_ADDRESS_SERIALIZED_LEN},
-        },
         protocol_types::{
             abis::function_selector::FunctionSelector,
             address::AztecAddress,
         }
     };
-    
+
     // docs:start:import_authwit
     use dep::authwit::{
         auth::{
@@ -45,82 +40,30 @@ contract Token {
     // docs:end:import_authwit
 
     use crate::types::{
-        transparent_note::{TransparentNote, TransparentNoteMethods, TRANSPARENT_NOTE_LEN},
-        token_note::{TokenNote, TokenNoteMethods, TOKEN_NOTE_LEN},
+        transparent_note::TransparentNote,
+        token_note::{TokenNote, TOKEN_NOTE_LEN},
         balances_map::{BalancesMap},
-        safe_u120_serialization::{SafeU120SerializationMethods, SAFE_U120_SERIALIZED_LEN}
     };
     // docs:end::imports
 
     // docs:start:storage_struct
     struct Storage {
         // docs:start:storage_admin
-        admin: PublicState<AztecAddress, AZTEC_ADDRESS_SERIALIZED_LEN>,
+        admin: PublicState<AztecAddress>,
         // docs:end:storage_admin
         // docs:start:storage_minters
-        minters: Map<AztecAddress, PublicState<bool, BOOL_SERIALIZED_LEN>>,
+        minters: Map<AztecAddress, PublicState<bool>>,
         // docs:end:storage_minters
         // docs:start:storage_balances
-        balances: BalancesMap,
+        balances: BalancesMap<TokenNote>,
         // docs:end:storage_balances
-        total_supply: PublicState<SafeU120, SAFE_U120_SERIALIZED_LEN>,
+        total_supply: PublicState<SafeU120>,
         // docs:start:storage_pending_shields
-        pending_shields: Set<TransparentNote, TRANSPARENT_NOTE_LEN>,
+        pending_shields: Set<TransparentNote>,
         // docs:end:storage_pending_shields
-        public_balances: Map<AztecAddress, PublicState<SafeU120, SAFE_U120_SERIALIZED_LEN>>,
+        public_balances: Map<AztecAddress, PublicState<SafeU120>>,
     }
     // docs:end:storage_struct
-
-    // docs:start:storage_init
-    impl Storage {
-        fn init(context: Context) -> Self {
-            Storage {
-                // docs:start:storage_admin_init
-                admin: PublicState::new(
-                    context,
-                    1,
-                    AddressSerializationMethods,
-                ),
-                // docs:end:storage_admin_init
-                // docs:start:storage_minters_init
-                minters: Map::new(
-                    context,
-                    2,
-                    |context, slot| {
-                        PublicState::new(
-                            context,
-                            slot,
-                            BoolSerializationMethods,
-                        )
-                    },
-                ),
-                // docs:end:storage_minters_init
-                // docs:start:storage_balances_init
-                balances: BalancesMap::new(context, 3),
-                // docs:end:storage_balances_init
-                total_supply: PublicState::new(
-                    context,
-                    4,
-                    SafeU120SerializationMethods,
-                ),
-                // docs:start:storage_pending_shields_init
-                pending_shields: Set::new(context, 5, TransparentNoteMethods),
-                // docs:end:storage_pending_shields_init
-                public_balances: Map::new(
-                    context,
-                    6,
-                    |context, slot| {
-                        PublicState::new(
-                            context,
-                            slot,
-                            SafeU120SerializationMethods,
-                        )
-                    },
-                ),
-            }
-        }
-    }
-    // docs:end:storage_init
 
     // docs:start:constructor
     #[aztec(private)]
@@ -246,16 +189,16 @@ contract Token {
     fn redeem_shield(to: AztecAddress, amount: Field, secret: Field) {
         let pending_shields = storage.pending_shields;
         let secret_hash = compute_secret_hash(secret);
-        // Get 1 note (set_limit(1)) which has amount stored in field with index 0 (select(0, amount)) and secret_hash
-        // stored in field with index 1 (select(1, secret_hash)).
-        let options = NoteGetterOptions::new().select(0, amount).select(1, secret_hash).set_limit(1);
+        // Get 1 note (set_limit(1)) which has amount stored in field with index 0 (select(0, amount, Option::none())) and secret_hash
+        // stored in field with index 1 (select(1, secret_hash, Option::none())).
+        let options = NoteGetterOptions::new().select(0, amount, Option::none()).select(1, secret_hash, Option::none()).set_limit(1);
         let notes = pending_shields.get_notes(options);
         let note = notes[0].unwrap_unchecked();
         // Remove the note from the pending shields set
         pending_shields.remove(note);
 
         // Add the token note to user's balances set
-        storage.balances.at(to).add(SafeU120::new(amount));
+        storage.balances.add(to, SafeU120::new(amount));
     }
     // docs:end:redeem_shield
 
@@ -268,7 +211,7 @@ contract Token {
             assert(nonce == 0, "invalid nonce");
         }
 
-        storage.balances.at(from).sub(SafeU120::new(amount));
+        storage.balances.sub(from, SafeU120::new(amount));
 
         let selector = FunctionSelector::from_signature("_increase_public_balance((Field),Field)");
         let _void = context.call_public_function(context.this_address(), selector, [to.to_field(), amount]);
@@ -287,9 +230,9 @@ contract Token {
         // docs:end:assert_current_call_valid_authwit
 
         let amount = SafeU120::new(amount);
-        storage.balances.at(from).sub(amount);
+        storage.balances.sub(from, amount);
         // docs:start:increase_private_balance
-        storage.balances.at(to).add(amount);
+        storage.balances.add(to, amount);
         // docs:end:increase_private_balance
     }
     // docs:end:transfer
@@ -303,7 +246,7 @@ contract Token {
             assert(nonce == 0, "invalid nonce");
         }
 
-        storage.balances.at(from).sub(SafeU120::new(amount));
+        storage.balances.sub(from, SafeU120::new(amount));
 
         let selector = FunctionSelector::from_signature("_reduce_total_supply(Field)");
         let _void = context.call_public_function(context.this_address(), selector, [amount]);
@@ -360,7 +303,7 @@ contract Token {
 
     // docs:start:balance_of_private
     unconstrained fn balance_of_private(owner: AztecAddress) -> pub u120 {
-        storage.balances.at(owner).balance_of().value
+        storage.balances.balance_of(owner).value
     }
     // docs:end:balance_of_private
 
@@ -384,10 +327,10 @@ contract Token {
         serialized_note: [Field; TOKEN_NOTE_LEN]
     ) -> pub [Field; 4] {
         let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
-        if (storage_slot == 5) {
-            note_utils::compute_note_hash_and_nullifier(TransparentNoteMethods, note_header, serialized_note)
+        if (storage_slot == storage.pending_shields.get_storage_slot()) {
+            note_utils::compute_note_hash_and_nullifier(TransparentNote::deserialize, note_header, serialized_note)
         } else {
-            note_utils::compute_note_hash_and_nullifier(TokenNoteMethods, note_header, serialized_note)
+            note_utils::compute_note_hash_and_nullifier(TokenNote::deserialize, note_header, serialized_note)
         }
     }
     // docs:end:compute_note_hash_and_nullifier

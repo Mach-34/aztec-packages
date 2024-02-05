@@ -1,4 +1,4 @@
-import { FunctionData, PrivateCallStackItem } from '@aztec/circuits.js';
+import { FunctionData, PrivateCallStackItem, PrivateCircuitPublicInputs } from '@aztec/circuits.js';
 import { ExecutionResult } from '@aztec/circuit-types';
 import { FunctionArtifactWithDebugMetadata, decodeReturnValues } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -6,7 +6,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { to2Fields } from '@aztec/foundation/serialize';
 
-import { extractPrivateCircuitPublicInputs } from '../acvm/deserialize.js';
+import { extractReturnWitness } from '../acvm/deserialize.js';
 import { Oracle, acvm, extractCallStack } from '../acvm/index.js';
 import { ExecutionError } from '../common/errors.js';
 import { ClientExecutionContext } from './client_execution_context.js';
@@ -42,7 +42,8 @@ export async function executePrivateFunction(
     },
   );
 
-  const publicInputs = extractPrivateCircuitPublicInputs(partialWitness, acir);
+  const returnWitness = extractReturnWitness(acir, partialWitness);
+  const publicInputs = PrivateCircuitPublicInputs.fromFields(returnWitness);
 
   const encryptedLogs = context.getEncryptedLogs();
   const unencryptedLogs = context.getUnencryptedLogs();
