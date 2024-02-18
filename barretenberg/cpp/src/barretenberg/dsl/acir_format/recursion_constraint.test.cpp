@@ -82,6 +82,7 @@ Builder create_inner_circuit()
     };
 
     AcirFormat constraint_system{ .varnum = 6,
+                                  .recursive = true,
                                   .public_inputs = { 1, 2 },
                                   .logic_constraints = { logic_constraint },
                                   .range_constraints = { range_a, range_b },
@@ -98,8 +99,10 @@ Builder create_inner_circuit()
                                   .pedersen_hash_constraints = {},
                                   .fixed_base_scalar_mul_constraints = {},
                                   .ec_add_constraints = {},
-                                  .ec_double_constraints = {},
                                   .recursion_constraints = {},
+                                  .bigint_from_le_bytes_constraints = {},
+                                  .bigint_to_le_bytes_constraints = {},
+                                  .bigint_operations = {},
                                   .constraints = { expr_a, expr_b, expr_c, expr_d },
                                   .block_constraints = {} };
 
@@ -234,6 +237,7 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
     }
 
     AcirFormat constraint_system{ .varnum = static_cast<uint32_t>(witness.size()),
+                                  .recursive = false,
                                   .public_inputs = {},
                                   .logic_constraints = {},
                                   .range_constraints = {},
@@ -250,8 +254,10 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
                                   .pedersen_hash_constraints = {},
                                   .fixed_base_scalar_mul_constraints = {},
                                   .ec_add_constraints = {},
-                                  .ec_double_constraints = {},
                                   .recursion_constraints = recursion_constraints,
+                                  .bigint_from_le_bytes_constraints = {},
+                                  .bigint_to_le_bytes_constraints = {},
+                                  .bigint_operations = {},
                                   .constraints = {},
                                   .block_constraints = {} };
 

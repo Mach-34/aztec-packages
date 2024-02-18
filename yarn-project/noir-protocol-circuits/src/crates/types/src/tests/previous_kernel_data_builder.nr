@@ -4,7 +4,6 @@ use crate::{
         call_request::{CallerContext, CallRequest},
         combined_constant_data::CombinedConstantData,
         combined_accumulated_data::CombinedAccumulatedDataBuilder,
-        block_header::BlockHeader,
         kernel_circuit_public_inputs::KernelCircuitPublicInputs,
         previous_kernel_data::PreviousKernelData,
         public_data_read::PublicDataRead,
@@ -12,7 +11,8 @@ use crate::{
         side_effect::{SideEffect, SideEffectLinkedToNoteHash},
     },
     address::{AztecAddress, EthAddress},
-    mocked::{Proof, VerificationKey},
+    header::Header,
+    mocked::{AggregationObject, Proof, VerificationKey},
     tests::{
         fixtures,
         testing_harness::build_tx_context,
@@ -32,7 +32,7 @@ struct PreviousKernelDataBuilder {
     contract_address: AztecAddress,
     portal_contract_address: EthAddress,
     end: CombinedAccumulatedDataBuilder,
-    block_header: BlockHeader,
+    historical_header: Header,
     tx_context: TxContext,
     is_private: bool,
     proof: Proof,
@@ -51,13 +51,13 @@ impl PreviousKernelDataBuilder {
             counter: 0
         }); // 0th nullifier must be non-zero.
 
-        let tx_context = build_tx_context(false);
+        let tx_context = build_tx_context(false, 0);
 
         PreviousKernelDataBuilder {
             contract_address: fixtures::contracts::parent_contract.address,
             portal_contract_address: fixtures::contracts::parent_contract.portal_contract_address,
             end,
-            block_header: fixtures::BLOCK_HEADER,
+            historical_header: fixtures::HEADER,
             tx_context,
             is_private: true,
             proof: Proof {},
@@ -66,11 +66,6 @@ impl PreviousKernelDataBuilder {
             vk_path: [0; VK_TREE_HEIGHT],
             sideffect_counter: 2,
         }
-    }
-
-    pub fn is_constructor(&mut self) -> Self {
-        self.tx_context = build_tx_context(true);
-        *self
     }
 
     pub fn is_public(&mut self) -> Self {
@@ -195,9 +190,11 @@ impl PreviousKernelDataBuilder {
 
     pub fn finish(self) -> PreviousKernelData {
         let public_inputs = KernelCircuitPublicInputs {
+            aggregation_object: AggregationObject {},
+            meta_hwm: 0,
             end: self.end.finish(),
             constants: CombinedConstantData {
-                block_header: self.block_header,
+                historical_header: self.historical_header,
                 tx_context: self.tx_context,
             },
             is_private: self.is_private,

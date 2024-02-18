@@ -1,7 +1,9 @@
 #include "AvmMini_common.test.hpp"
 
+using namespace bb;
+
+namespace tests_avm {
 using namespace avm_trace;
-using namespace tests_avm;
 
 class AvmMiniControlFlowTests : public ::testing::Test {
   public:
@@ -285,3 +287,4 @@ TEST_F(AvmMiniControlFlowTests, multipleCallsAndReturns)
 
     validate_trace_proof(std::move(trace));
 }
+} // namespace tests_avm

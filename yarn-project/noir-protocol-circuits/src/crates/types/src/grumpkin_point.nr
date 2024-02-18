@@ -1,8 +1,32 @@
+use crate::traits::{Serialize, Deserialize};
+use dep::std::cmp::Eq;
+
 global GRUMPKIN_POINT_SERIALIZED_LEN: Field = 2;
 
 struct GrumpkinPoint {
     x: Field,
     y: Field,
+}
+
+impl Serialize<GRUMPKIN_POINT_SERIALIZED_LEN> for GrumpkinPoint {
+    fn serialize(self) -> [Field; GRUMPKIN_POINT_SERIALIZED_LEN] {
+        [self.x, self.y]
+    }
+}
+
+impl Deserialize<GRUMPKIN_POINT_SERIALIZED_LEN> for GrumpkinPoint {
+    fn deserialize(serialized: [Field; GRUMPKIN_POINT_SERIALIZED_LEN]) -> Self {
+        Self {
+            x: serialized[0],
+            y: serialized[1],
+        }
+    }
+}
+
+impl Eq for GrumpkinPoint {
+    fn eq(self, point: GrumpkinPoint) -> bool {
+        (point.x == self.x) & (point.y == self.y)
+    }
 }
 
 impl GrumpkinPoint {
@@ -17,8 +41,8 @@ impl GrumpkinPoint {
         }
     }
 
-    fn serialize(self) -> [Field; GRUMPKIN_POINT_SERIALIZED_LEN] {
-        [self.x, self.y]
+    pub fn is_zero(self) -> bool {
+        (self.x == 0) & (self.y == 0)
     }
 
     // TODO(David): Would be quite careful here as (0,0) is not a point

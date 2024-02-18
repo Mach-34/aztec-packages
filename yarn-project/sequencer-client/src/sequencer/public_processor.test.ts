@@ -1,8 +1,8 @@
-import { PublicExecution, PublicExecutionResult, PublicExecutor } from '@aztec/acir-simulator';
 import {
   ExtendedContractData,
   FunctionCall,
   FunctionL2Logs,
+  SiblingPath,
   SimulationError,
   Tx,
   TxL2Logs,
@@ -11,7 +11,6 @@ import {
 import {
   ARGS_LENGTH,
   AztecAddress,
-  BlockHeader,
   CallContext,
   CallRequest,
   CombinedAccumulatedData,
@@ -19,6 +18,7 @@ import {
   Fr,
   FunctionData,
   GlobalVariables,
+  Header,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   PUBLIC_DATA_TREE_HEIGHT,
@@ -35,7 +35,7 @@ import {
 } from '@aztec/circuits.js/factories';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd, times } from '@aztec/foundation/collection';
-import { SiblingPath } from '@aztec/types/membership';
+import { PublicExecution, PublicExecutionResult, PublicExecutor } from '@aztec/simulator';
 import { MerkleTreeOperations, TreeInfo } from '@aztec/world-state';
 
 import { MockProxy, mock } from 'jest-mock-extended';
@@ -84,7 +84,7 @@ describe('public_processor', () => {
         publicKernel,
         publicProver,
         GlobalVariables.empty(),
-        BlockHeader.empty(),
+        Header.empty(),
         publicContractsDB,
         publicWorldStateDB,
       );
@@ -101,6 +101,8 @@ describe('public_processor', () => {
           isEmpty: false,
           hash,
           data: new PublicKernelPublicInputs(
+            tx.data.aggregationObject,
+            tx.data.metaHwm,
             CombinedAccumulatedData.fromFinalAccumulatedData(tx.data.end),
             tx.data.constants,
           ),
@@ -139,7 +141,7 @@ describe('public_processor', () => {
         publicKernel,
         publicProver,
         GlobalVariables.empty(),
-        BlockHeader.empty(),
+        Header.empty(),
         publicContractsDB,
         publicWorldStateDB,
       );

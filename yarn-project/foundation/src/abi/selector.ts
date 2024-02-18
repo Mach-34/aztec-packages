@@ -1,8 +1,9 @@
-import { fromHex, toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { BufferReader } from '@aztec/foundation/serialize';
+import { randomBytes } from 'crypto';
 
+import { fromHex, toBigIntBE, toBufferBE } from '../bigint-buffer/index.js';
 import { keccak } from '../crypto/keccak/index.js';
 import { Fr } from '../fields/index.js';
+import { BufferReader, FieldReader } from '../serialize/index.js';
 import { type ABIParameter } from './abi.js';
 import { decodeFunctionSignature } from './decoder.js';
 
@@ -15,7 +16,7 @@ abstract class Selector {
 
   constructor(/** Value of the selector */ public value: number) {
     if (value > 2 ** (Selector.SIZE * 8) - 1) {
-      throw new Error(`selector must fit in ${Selector.SIZE} bytes.`);
+      throw new Error(`Selector must fit in ${Selector.SIZE} bytes (got value ${value}).`);
     }
   }
 
@@ -104,6 +105,11 @@ export class FunctionSelector extends Selector {
     return new FunctionSelector(Number(fr.toBigInt()));
   }
 
+  static fromFields(fields: Fr[] | FieldReader) {
+    const reader = FieldReader.asReader(fields);
+    return FunctionSelector.fromField(reader.readField());
+  }
+
   /**
    * Creates a selector from a signature.
    * @param signature - Signature to generate the selector for (e.g. "transfer(field,field)").
@@ -147,12 +153,26 @@ export class FunctionSelector extends Selector {
    * @param parameters - An array of ABIParameter objects, each containing the type information of a function parameter.
    * @returns A Buffer containing the 4-byte selector.
    */
-  static fromNameAndParameters(name: string, parameters: ABIParameter[]) {
+  static fromNameAndParameters(args: { name: string; parameters: ABIParameter[] }): FunctionSelector;
+  static fromNameAndParameters(name: string, parameters: ABIParameter[]): FunctionSelector;
+  static fromNameAndParameters(
+    nameOrArgs: string | { name: string; parameters: ABIParameter[] },
+    maybeParameters?: ABIParameter[],
+  ): FunctionSelector {
+    const { name, parameters } =
+      typeof nameOrArgs === 'string' ? { name: nameOrArgs, parameters: maybeParameters! } : nameOrArgs;
     const signature = decodeFunctionSignature(name, parameters);
     const selector = this.fromSignature(signature);
     // If using the debug logger here it kill the typing in the `server_world_state_synchronizer` and jest tests.
     // console.log(`selector for ${signature} is ${selector}`);
     return selector;
+  }
+
+  /**
+   * Creates a random instance.
+   */
+  static random() {
+    return FunctionSelector.fromBuffer(randomBytes(Selector.SIZE));
   }
 }
 

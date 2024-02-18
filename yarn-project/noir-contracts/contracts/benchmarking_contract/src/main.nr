@@ -7,7 +7,7 @@
 contract Benchmarking {
     use dep::value_note::{
         utils::{increment, decrement},
-        value_note::{VALUE_NOTE_LEN, ValueNote, ValueNoteMethods},
+        value_note::{VALUE_NOTE_LEN, ValueNote},
     };
 
     use dep::aztec::{
@@ -19,21 +19,11 @@ contract Benchmarking {
         note::{utils as note_utils, note_getter_options::NoteGetterOptions, note_header::NoteHeader},
         log::emit_unencrypted_log,
         state_vars::{map::Map, public_state::PublicState, set::Set},
-        types::type_serialization::field_serialization::{FieldSerializationMethods, FIELD_SERIALIZED_LEN},
     };
 
     struct Storage {
-        notes: Map<AztecAddress, Set<ValueNote, VALUE_NOTE_LEN>>,
-        balances: Map<AztecAddress, PublicState<Field, FIELD_SERIALIZED_LEN>>,
-    }
-
-    impl Storage {
-        fn init(context: Context) -> pub Self {
-            Storage {
-                notes: Map::new(context, 1, |context, slot| { Set::new(context, slot, ValueNoteMethods) }),
-                balances: Map::new(context, 2, |context, slot| { PublicState::new(context, slot, FieldSerializationMethods) }),
-            }
-        }
+        notes: Map<AztecAddress, Set<ValueNote>>,
+        balances: Map<AztecAddress, PublicState<Field>>,
     }
 
     #[aztec(private)]
@@ -85,6 +75,6 @@ contract Benchmarking {
         serialized_note: [Field; VALUE_NOTE_LEN]
     ) -> pub [Field; 4] {
         let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
-        note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, serialized_note)
+        note_utils::compute_note_hash_and_nullifier(ValueNote::deserialize_content, note_header, serialized_note)
     }
 }

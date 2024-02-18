@@ -3,6 +3,7 @@ title: Building a web app with NoirJS
 description: Learn how to setup a new app that uses Noir to generate and verify zero-knowledge SNARK proofs in a typescript or javascript environment.
 keywords: [how to, guide, javascript, typescript, noir, barretenberg, zero-knowledge, proofs, app]
 sidebar_position: 0
+pagination_next: noir/concepts/data_types/index
 ---
 
 NoirJS is a set of packages meant to work both in a browser and a server environment. In this tutorial, we will build a simple web app using them. From here, you should get an idea on how to proceed with your own Noir projects!
@@ -70,7 +71,7 @@ At this point in the tutorial, your folder structure should look like this:
 ### Node and Vite
 
 If you want to explore Nargo, feel free to go on a side-quest now and follow the steps in the
-[getting started](../getting_started/create_a_project) guide. However, we want our app to run on the browser, so we need Vite.
+[getting started](../getting_started/hello_noir/index.md) guide. However, we want our app to run on the browser, so we need Vite.
 
 Vite is a powerful tool to generate static websites. While it provides all kinds of features, let's just go barebones with some good old vanilla JS.
 
@@ -205,7 +206,7 @@ We're starting with the good stuff now. If you've compiled the circuit as descri
 import circuit from '../circuit/target/circuit.json';
 ```
 
-[Noir is backend-agnostic](../index.md#whats-new-about-noir). We write Noir, but we also need a proving backend. That's why we need to import and instantiate the two dependencies we installed above: `BarretenbergBackend` and `Noir`. Let's import them right below:
+[Noir is backend-agnostic](../index.mdx#whats-new-about-noir). We write Noir, but we also need a proving backend. That's why we need to import and instantiate the two dependencies we installed above: `BarretenbergBackend` and `Noir`. Let's import them right below:
 
 ```js
 import { BarretenbergBackend } from '@noir-lang/backend_barretenberg';
@@ -273,6 +274,6 @@ You have successfully generated a client-side Noir web app!
 
 ## Further Reading
 
-You can see how noirjs is used in a full stack Next.js hardhat application in the [noir-starter repo here](https://github.com/noir-lang/noir-starter/tree/main/next-hardhat). The example shows how to calculate a proof in the browser and verify it with a deployed Solidity verifier contract from noirjs.
+You can see how noirjs is used in a full stack Next.js hardhat application in the [noir-starter repo here](https://github.com/noir-lang/noir-starter/tree/main/vite-hardhat). The example shows how to calculate a proof in the browser and verify it with a deployed Solidity verifier contract from noirjs.
 
 You should also check out the more advanced examples in the [noir-examples repo](https://github.com/noir-lang/noir-examples), where you'll find reference usage for some cool apps.

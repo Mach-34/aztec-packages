@@ -673,7 +673,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
     UltraCircuitBuilder_(const size_t size_hint,
                          auto& witness_values,
                          const std::vector<uint32_t>& public_inputs,
-                         size_t varnum)
+                         size_t varnum,
+                         bool recursive = false)
         : CircuitBuilderBase<FF>(size_hint)
     {
         selectors.reserve(size_hint);
@@ -696,6 +697,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
         // incorporated into variables.
         this->zero_idx = put_constant_variable(FF::zero());
         this->tau.insert({ DUMMY_TAG, DUMMY_TAG }); // TODO(luke): explain this
+
+        this->is_recursive_circuit = recursive;
     };
     UltraCircuitBuilder_(const UltraCircuitBuilder_& other) = default;
     UltraCircuitBuilder_(UltraCircuitBuilder_&& other)
@@ -779,7 +782,9 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
                                      std::string const msg = "create_new_range_constraint");
     void create_range_constraint(const uint32_t variable_index, const size_t num_bits, std::string const& msg)
     {
-        if (num_bits <= DEFAULT_PLOOKUP_RANGE_BITNUM) {
+        if (num_bits == 1) {
+            create_bool_gate(variable_index);
+        } else if (num_bits <= DEFAULT_PLOOKUP_RANGE_BITNUM) {
             /**
              * N.B. if `variable_index` is not used in any arithmetic constraints, this will create an unsatisfiable
              *      circuit!
@@ -820,7 +825,10 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
     uint32_t put_constant_variable(const FF& variable);
 
   public:
-    size_t get_num_constant_gates() const override { return 0; }
+    size_t get_num_constant_gates() const override
+    {
+        return 0;
+    }
     /**
      * @brief Get the final number of gates in a circuit, which consists of the sum of:
      * 1) Current number number of actual gates
@@ -1166,5 +1174,5 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization:
 
     bool check_circuit();
 };
-using UltraCircuitBuilder = UltraCircuitBuilder_<arithmetization::Ultra<bb::fr>>;
+using UltraCircuitBuilder = UltraCircuitBuilder_<UltraArith<bb::fr>>;
 } // namespace bb

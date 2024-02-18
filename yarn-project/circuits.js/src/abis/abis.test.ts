@@ -2,43 +2,34 @@ import { times } from '@aztec/foundation/collection';
 
 import {
   AztecAddress,
+  EthAddress,
   Fr,
   FunctionData,
   FunctionLeafPreimage,
   FunctionSelector,
-  GlobalVariables,
   NewContractData,
   PublicCallStackItem,
-  PublicCircuitPublicInputs,
   SideEffect,
   SideEffectLinkedToNoteHash,
 } from '../index.js';
 import {
   makeAztecAddress,
   makeEthAddress,
-  makePoint,
-  makePrivateCallStackItem,
   makePublicCallStackItem,
   makeTxRequest,
   makeVerificationKey,
 } from '../tests/factories.js';
 import {
-  computeBlockHashWithGlobals,
   computeCommitmentNonce,
   computeCommitmentsHash,
-  computeCompleteAddress,
-  computeContractAddressFromPartial,
   computeContractLeaf,
   computeFunctionLeaf,
   computeFunctionSelector,
   computeFunctionTreeRoot,
-  computeGlobalsHash,
   computeNullifierHash,
-  computePrivateCallStackItemHash,
   computePublicCallStackItemHash,
   computePublicDataTreeLeafSlot,
   computePublicDataTreeValue,
-  computePublicInputsHash,
   computeSecretMessageHash,
   computeTxHash,
   computeUniqueCommitment,
@@ -88,22 +79,6 @@ describe('abis', () => {
     expect(res).toMatchSnapshot();
   });
 
-  it('computes a complete address', () => {
-    const deployerPubKey = makePoint();
-    const contractAddrSalt = new Fr(2n);
-    const treeRoot = new Fr(3n);
-    const constructorHash = new Fr(4n);
-    const res = computeCompleteAddress(deployerPubKey, contractAddrSalt, treeRoot, constructorHash);
-    expect(res).toMatchSnapshot();
-  });
-
-  it('computes a contract address from partial', () => {
-    const deployerPubKey = makePoint();
-    const partialAddress = new Fr(2n);
-    const res = computeContractAddressFromPartial(deployerPubKey, partialAddress);
-    expect(res).toMatchSnapshot();
-  });
-
   it('computes commitment nonce', () => {
     const nullifierZero = new Fr(123n);
     const commitmentIndex = 456;
@@ -132,40 +107,6 @@ describe('abis', () => {
     expect(res).toMatchSnapshot();
   });
 
-  it('computes block hash with globals', () => {
-    const globals = GlobalVariables.from({
-      chainId: new Fr(1n),
-      version: new Fr(2n),
-      blockNumber: new Fr(3n),
-      timestamp: new Fr(4n),
-    });
-    const noteHashTreeRoot = new Fr(5n);
-    const nullifierTreeRoot = new Fr(6n);
-    const contractTreeRoot = new Fr(7n);
-    const l1ToL2DataTreeRoot = new Fr(8n);
-    const publicDataTreeRoot = new Fr(9n);
-    const res = computeBlockHashWithGlobals(
-      globals,
-      noteHashTreeRoot,
-      nullifierTreeRoot,
-      contractTreeRoot,
-      l1ToL2DataTreeRoot,
-      publicDataTreeRoot,
-    );
-    expect(res).toMatchSnapshot();
-  });
-
-  it('compute globals hash', () => {
-    const globals = GlobalVariables.from({
-      chainId: new Fr(1n),
-      version: new Fr(2n),
-      blockNumber: new Fr(3n),
-      timestamp: new Fr(4n),
-    });
-    const res = computeGlobalsHash(globals);
-    expect(res).toMatchSnapshot();
-  });
-
   it('computes public data tree value', () => {
     const value = new Fr(3n);
     const res = computePublicDataTreeValue(value);
@@ -185,7 +126,6 @@ describe('abis', () => {
   });
 
   it('hashes function args', () => {
-    // const args = Array.from({ length: 8 }).map((_, i) => new Fr(i));
     const args = times(8, i => new Fr(i));
     const res = computeVarArgsHash(args);
     expect(res).toMatchSnapshot();
@@ -204,7 +144,7 @@ describe('abis', () => {
   });
 
   it('computes zero contract leaf', () => {
-    const cd = new NewContractData(AztecAddress.ZERO, AztecAddress.ZERO, new Fr(0n));
+    const cd = new NewContractData(AztecAddress.ZERO, EthAddress.ZERO, new Fr(0n));
     const res = computeContractLeaf(cd);
     expect(res).toMatchSnapshot();
   });
@@ -212,12 +152,6 @@ describe('abis', () => {
   it('compute tx hash', () => {
     const txRequest = makeTxRequest();
     const hash = computeTxHash(txRequest);
-    expect(hash).toMatchSnapshot();
-  });
-
-  it('compute private call stack item hash', () => {
-    const item = makePrivateCallStackItem();
-    const hash = computePrivateCallStackItemHash(item);
     expect(hash).toMatchSnapshot();
   });
 
@@ -246,16 +180,32 @@ describe('abis', () => {
     expect(emptyHash).toMatchSnapshot();
   });
 
-  it('Computes an empty call request hash ', () => {
-    const emptycallstack = PublicCallStackItem.empty();
-    const emptyHash = emptycallstack.hash();
-    expect(emptyHash.toString()).toMatchSnapshot();
+  it('Computes a callstack item request hash', () => {
+    const callStack = PublicCallStackItem.empty();
+
+    callStack.contractAddress = AztecAddress.fromField(new Fr(1));
+    callStack.functionData = new FunctionData(new FunctionSelector(2), false, false, false);
+    callStack.isExecutionRequest = true;
+    callStack.publicInputs.newCommitments[0] = new SideEffect(new Fr(1), new Fr(0));
+
+    const hash = callStack.hash();
+    expect(hash.toString()).toMatchSnapshot();
+
+    // Value used in compute_call_stack_item_hash test in noir circuits
+    // console.log("hash", hash.toString());
   });
 
-  it('Computes an empty public inputs hash ', () => {
-    const publicInputs = PublicCircuitPublicInputs.empty();
-    const emptyHash = computePublicInputsHash(publicInputs);
+  it('Computes a callstack item hash', () => {
+    const callStack = PublicCallStackItem.empty();
 
-    expect(Fr.fromBuffer(emptyHash).toString()).toMatchSnapshot();
+    callStack.contractAddress = AztecAddress.fromField(new Fr(1));
+    callStack.functionData = new FunctionData(new FunctionSelector(2), false, false, false);
+    callStack.publicInputs.newCommitments[0] = new SideEffect(new Fr(1), new Fr(0));
+
+    const hash = callStack.hash();
+    expect(hash.toString()).toMatchSnapshot();
+
+    // Value used in compute_call_stack_item_request_hash test in noir circuits
+    // console.log("hash", hash.toString());
   });
 });

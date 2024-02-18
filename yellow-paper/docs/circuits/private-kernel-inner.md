@@ -76,11 +76,6 @@ For the _call_context_ in the [public_inputs](./private-function.md#public-input
    - The previous iteration must not be a static call:
      - _`caller_context.is_static_call == false`_
 
-4. If it is an internal call: _`call_stack_item.function_data.is_internal == true`_
-
-   - The _msg_sender_ of the current iteration must equal the _storage_contract_address_:
-     - _`call_context.msg_sender == call_context.storage_contract_address`_
-
 #### Verifying the private function proof.
 
 It verifies that the private function was executed successfully with the provided proof data, verification key, and the public inputs, sourced from _[private_inputs](#private-inputs).[private_call](#privatecall)_.
@@ -91,7 +86,7 @@ This circuit verifies this proof and [the proof of the previous kernel iteration
 
 It ensures the private function circuit's intention by checking the following in _[private_call](#privatecall).[call_stack_item](#privatecallstackitem).[public_inputs](./private-function.md#public-inputs)_:
 
-- The _block_header_ must match the one in the _[constant_data](./private-kernel-initial.md#constantdata)_.
+- The _header_ must match the one in the _[constant_data](./private-kernel-initial.md#constantdata)_.
 - If it is a static call (_`public_inputs.call_context.is_static_call == true`_), it ensures that the function does not induce any state changes by verifying that the following arrays are empty:
   - _note_hashes_
   - _nullifiers_

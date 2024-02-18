@@ -1,6 +1,7 @@
 #include <benchmark/benchmark.h>
 
 #include "barretenberg/benchmark/ultra_bench/mock_proofs.hpp"
+#include "barretenberg/common/op_count_google_bench.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include "barretenberg/ultra_honk/ultra_composer.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
@@ -27,15 +28,20 @@ enum {
  * @param prover - The ultrahonk prover.
  * @param index - The pass to measure.
  **/
-BBERG_PROFILE static void test_round_inner(State& state, honk::UltraProver& prover, size_t index) noexcept
+BB_PROFILE static void test_round_inner(State& state, UltraProver& prover, size_t index) noexcept
 {
     auto time_if_index = [&](size_t target_index, auto&& func) -> void {
+        BB_REPORT_OP_COUNT_IN_BENCH(state);
         if (index == target_index) {
             state.ResumeTiming();
         }
+
         func();
         if (index == target_index) {
             state.PauseTiming();
+        } else {
+            // We don't actually want to write to user-defined counters
+            BB_REPORT_OP_COUNT_BENCH_CANCEL();
         }
     };
 
@@ -47,16 +53,16 @@ BBERG_PROFILE static void test_round_inner(State& state, honk::UltraProver& prov
     time_if_index(RELATION_CHECK, [&] { prover.execute_relation_check_rounds(); });
     time_if_index(ZEROMORPH, [&] { prover.execute_zeromorph_rounds(); });
 }
-BBERG_PROFILE static void test_round(State& state, size_t index) noexcept
+BB_PROFILE static void test_round(State& state, size_t index) noexcept
 {
     bb::srs::init_crs_factory("../srs_db/ignition");
 
     for (auto _ : state) {
         state.PauseTiming();
-        honk::UltraComposer composer;
+        UltraComposer composer;
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/761) benchmark both sparse and dense circuits
-        honk::UltraProver prover = bb::mock_proofs::get_prover(
-            composer, &bb::mock_proofs::generate_ecdsa_verification_test_circuit<UltraCircuitBuilder>, 10);
+        UltraProver prover = bb::mock_proofs::get_prover(
+            composer, &bb::stdlib::generate_ecdsa_verification_test_circuit<UltraCircuitBuilder>, 10);
         test_round_inner(state, prover, index);
         state.ResumeTiming();
         // NOTE: google bench is very finnicky, must end in ResumeTiming() for correctness
@@ -78,3 +84,5 @@ ROUND_BENCHMARK(LOG_DERIVATIVE_INVERSE)->Iterations(1);
 ROUND_BENCHMARK(GRAND_PRODUCT_COMPUTATION)->Iterations(1);
 ROUND_BENCHMARK(RELATION_CHECK);
 ROUND_BENCHMARK(ZEROMORPH);
+
+BENCHMARK_MAIN();

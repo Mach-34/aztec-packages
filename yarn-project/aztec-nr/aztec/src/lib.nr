@@ -1,4 +1,5 @@
 mod abi;
+mod avm;
 mod context;
 mod hash;
 mod history;
@@ -8,6 +9,5 @@ mod messaging;
 mod note;
 mod oracle;
 mod state_vars;
-mod types;
 mod utils;
 use dep::protocol_types;

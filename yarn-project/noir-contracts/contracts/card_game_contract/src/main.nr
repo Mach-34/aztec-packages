@@ -20,7 +20,7 @@ contract CardGame {
     use dep::value_note::{
         balance_utils,
         value_note::{
-            ValueNoteMethods,
+            ValueNote,
             VALUE_NOTE_LEN,
         },
     };
@@ -49,60 +49,13 @@ contract CardGame {
         PLAYABLE_CARDS,
         PlayerEntry,
         Game,
-        GameSerializationMethods,
         GAME_SERIALIZED_LEN
     };
 
     struct Storage {
         collections: Map<AztecAddress, Deck>,
         game_decks: Map<Field, Map<AztecAddress, Deck>>,
-        games: Map<Field, PublicState<Game, GAME_SERIALIZED_LEN>>,
-    }
-
-    impl Storage {
-        fn init(
-            context: Context,
-        ) -> Self {
-            Storage {
-                collections: Map::new(
-                    context,
-                    1,
-                    |context, slot| {
-                        Deck::new(
-                            context,
-                            slot,
-                        )
-                    },
-                ),
-                game_decks: Map::new(
-                    context,
-                    2,
-                    |context, slot| {
-                        Map::new(
-                            context,
-                            slot,
-                            |context, slot|{
-                                Deck::new(
-                                    context,
-                                    slot,
-                                )
-                            }
-                        )
-                    },
-                ),
-                games: Map::new(
-                    context,
-                    3,
-                    |context, slot| {
-                        PublicState::new(
-                            context,
-                            slot,
-                            GameSerializationMethods,
-                        )
-                    },
-                )
-            }
-        }
+        games: Map<Field, PublicState<Game>>,
     }
 
     #[aztec(private)]
@@ -245,6 +198,6 @@ contract CardGame {
         serialized_note: [Field; VALUE_NOTE_LEN]
     ) -> pub [Field; 4] {
         let note_header = NoteHeader::new(contract_address, nonce, storage_slot);
-        note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, serialized_note)
+        note_utils::compute_note_hash_and_nullifier(ValueNote::deserialize_content, note_header, serialized_note)
     }
 }

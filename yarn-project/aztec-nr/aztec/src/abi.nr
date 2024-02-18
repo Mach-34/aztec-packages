@@ -1,12 +1,14 @@
 use dep::protocol_types::{
     abis::{
-        block_header::BlockHeader,
         call_context::CallContext,
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         public_circuit_public_inputs::PublicCircuitPublicInputs,
     },
+    address::{AztecAddress, EthAddress},
     contrakt::deployment_data::ContractDeploymentData,
     hash::hash_args,
+    traits::{Hash, Serialize},
+    header::Header,
 };
 
 // docs:start:private-global-variables
@@ -16,7 +18,7 @@ struct PrivateGlobalVariables {
 }
 // docs:end:private-global-variables
 
-impl PrivateGlobalVariables {
+impl Serialize<2> for PrivateGlobalVariables {
     fn serialize(self) -> [Field; 2] {
         [self.chain_id, self.version]
     }
@@ -28,12 +30,21 @@ struct PublicGlobalVariables {
     version: Field,
     block_number: Field,
     timestamp: Field,
+    coinbase: EthAddress,
+    fee_recipient: AztecAddress,
 }
 // docs:end:public-global-variables
 
-impl PublicGlobalVariables {
-    fn serialize(self) -> [Field; 4] {
-        [self.chain_id, self.version, self.block_number, self.timestamp]
+impl Serialize<6> for PublicGlobalVariables {
+    fn serialize(self) -> [Field; 6] {
+        [
+            self.chain_id,
+            self.version,
+            self.block_number,
+            self.timestamp,
+            self.coinbase.to_field(),
+            self.fee_recipient.to_field(),
+        ]
     }
 }
 
@@ -41,7 +52,7 @@ impl PublicGlobalVariables {
 // docs:start:private-context-inputs
 struct PrivateContextInputs {
     call_context : CallContext,
-    block_header: BlockHeader,
+    historical_header: Header,
     contract_deployment_data: ContractDeploymentData,
     private_global_variables: PrivateGlobalVariables,
 }
@@ -51,7 +62,7 @@ struct PrivateContextInputs {
 // docs:start:public-context-inputs
 struct PublicContextInputs {
     call_context: CallContext,
-    block_header: BlockHeader,
+    historical_header: Header,
 
     public_global_variables: PublicGlobalVariables,
 }
@@ -59,6 +70,12 @@ struct PublicContextInputs {
 
 struct Hasher {
     fields: [Field],
+}
+
+impl Hash for Hasher {
+    fn hash(self) -> Field {
+        hash_args(self.fields)
+    }
 }
 
 impl Hasher {
@@ -74,9 +91,5 @@ impl Hasher {
         for i in 0..N {
             self.fields = self.fields.push_back(fields[i]);
         }
-    }
-
-    pub fn hash(self) -> Field {
-        hash_args(self.fields)
     }
 }

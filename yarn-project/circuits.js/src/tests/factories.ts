@@ -1,21 +1,20 @@
 import { makeHalfFullTuple, makeTuple, range } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { numToUInt32BE } from '@aztec/foundation/serialize';
-
-import { randomBytes } from 'crypto';
+import { ContractClassPublic, PrivateFunction, PublicFunction } from '@aztec/types/contracts';
 
 import { SchnorrSignature } from '../barretenberg/index.js';
 import {
   ARCHIVE_HEIGHT,
   ARGS_LENGTH,
+  AccumulatedMetaData,
   AggregationObject,
   AppendOnlyTreeSnapshot,
   BaseOrMergeRollupPublicInputs,
   BaseRollupInputs,
-  BlockHeader,
   CONTRACT_SUBTREE_SIBLING_PATH_LENGTH,
-  CONTRACT_TREE_HEIGHT,
   CallContext,
   CallRequest,
   CallerContext,
@@ -33,20 +32,26 @@ import {
   FunctionData,
   FunctionSelector,
   G1AffineElement,
+  GrumpkinPrivateKey,
+  GrumpkinScalar,
   KernelCircuitPublicInputs,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_COMMITMENTS_PER_TX,
+  MAX_NEW_COMMITMENTS_PER_TX_META,
   MAX_NEW_CONTRACTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_TX,
-  MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
+  MAX_NEW_NULLIFIERS_PER_TX_META,
+  MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
+  MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META,
   MAX_PUBLIC_DATA_READS_PER_CALL,
   MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
@@ -62,8 +67,9 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_FIELDS_PER_SHA256,
   NewContractData,
+  NullifierKeyValidationRequest,
+  NullifierKeyValidationRequestContext,
   NullifierLeafPreimage,
-  OptionallyRevealedData,
   PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
   PUBLIC_DATA_TREE_HEIGHT,
   PartialStateReference,
@@ -101,6 +107,9 @@ import {
   VK_TREE_HEIGHT,
   VerificationKey,
   WitnessedPublicCallData,
+  computeContractClassId,
+  computePublicBytecodeCommitment,
+  packBytecode,
 } from '../index.js';
 import { GlobalVariables } from '../structs/global_variables.js';
 import { Header, NUM_BYTES_PER_SHA256 } from '../structs/header.js';
@@ -135,31 +144,12 @@ export function makeTxContext(seed: number): TxContext {
 }
 
 /**
- * Creates an arbitrary combined historical tree roots object from the given seed.
- * Note: "Combined" indicates that it's the combined output of both private and public circuit flows.
- * @param seed - The seed to use for generating the combined historical tree roots.
- * @returns A combined historical tree roots object.
- */
-export function makeBlockHeader(seed: number): BlockHeader {
-  return new BlockHeader(
-    fr(seed),
-    fr(seed + 1),
-    fr(seed + 2),
-    fr(seed + 3),
-    fr(seed + 4),
-    fr(seed + 5),
-    fr(seed + 6),
-    fr(seed + 7),
-  );
-}
-
-/**
  * Creates arbitrary constant data with the given seed.
  * @param seed - The seed to use for generating the constant data.
  * @returns A constant data object.
  */
 export function makeConstantData(seed = 1): CombinedConstantData {
-  return new CombinedConstantData(makeBlockHeader(seed), makeTxContext(seed + 4));
+  return new CombinedConstantData(makeHeader(seed, undefined), makeTxContext(seed + 4));
 }
 
 /**
@@ -169,6 +159,28 @@ export function makeConstantData(seed = 1): CombinedConstantData {
  */
 export function makeSelector(seed: number): FunctionSelector {
   return new FunctionSelector(seed);
+}
+
+/**
+ * Creates arbitrary NullifierKeyValidationRequest from the given seed.
+ * @param seed - The seed to use for generating the NullifierKeyValidationRequest.
+ * @returns A NullifierKeyValidationRequest.
+ */
+function makeNullifierKeyValidationRequest(seed: number): NullifierKeyValidationRequest {
+  return new NullifierKeyValidationRequest(makePoint(seed), makeGrumpkinPrivateKey(seed + 2));
+}
+
+/**
+ * Creates arbitrary NullifierKeyValidationRequestContext from the given seed.
+ * @param seed - The seed to use for generating the NullifierKeyValidationRequestContext.
+ * @returns A NullifierKeyValidationRequestContext.
+ */
+function makeNullifierKeyValidationRequestContext(seed: number): NullifierKeyValidationRequestContext {
+  return new NullifierKeyValidationRequestContext(
+    makePoint(seed),
+    makeGrumpkinPrivateKey(seed + 2),
+    makeAztecAddress(seed + 4),
+  );
 }
 
 /**
@@ -232,9 +244,13 @@ export function makeAccumulatedData(seed = 1, full = false): CombinedAccumulated
   const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
 
   return new CombinedAccumulatedData(
-    makeAggregationObject(seed),
     tupleGenerator(MAX_READ_REQUESTS_PER_TX, sideEffectFromNumber, seed + 0x80),
-    tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, sideEffectFromNumber, seed + 0x100),
+    tupleGenerator(
+      MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
+      makeNullifierKeyValidationRequestContext,
+      seed + 0x100,
+    ),
+    tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, sideEffectFromNumber, seed + 0x120),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, sideEffectLinkedFromNumber, seed + 0x200),
     tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x400),
     tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x500),
@@ -244,7 +260,6 @@ export function makeAccumulatedData(seed = 1, full = false): CombinedAccumulated
     fr(seed + 0x900), // encrypted_log_preimages_length
     fr(seed + 0xa00), // unencrypted_log_preimages_length
     tupleGenerator(MAX_NEW_CONTRACTS_PER_TX, makeNewContractData, seed + 0xb00),
-    tupleGenerator(MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX, makeOptionallyRevealedData, seed + 0xc00),
     tupleGenerator(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, makePublicDataUpdateRequest, seed + 0xd00),
     tupleGenerator(MAX_PUBLIC_DATA_READS_PER_TX, makePublicDataRead, seed + 0xe00),
   );
@@ -259,7 +274,6 @@ export function makeFinalAccumulatedData(seed = 1, full = false): FinalAccumulat
   const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
 
   return new FinalAccumulatedData(
-    makeAggregationObject(seed),
     tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, sideEffectFromNumber, seed + 0x100),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, sideEffectLinkedFromNumber, seed + 0x200),
     tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x400),
@@ -270,7 +284,21 @@ export function makeFinalAccumulatedData(seed = 1, full = false): FinalAccumulat
     fr(seed + 0x900), // encrypted_log_preimages_length
     fr(seed + 0xa00), // unencrypted_log_preimages_length
     tupleGenerator(MAX_NEW_CONTRACTS_PER_TX, makeNewContractData, seed + 0xb00),
-    tupleGenerator(MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX, makeOptionallyRevealedData, seed + 0xc00),
+  );
+}
+
+/**
+ * Creates arbitrary accumulated data for a Tx's meta phase.
+ * @param seed - The seed to use for generating the data.
+ * @returns An instance of AccumulatedMetaData.
+ */
+export function makeAccumulatedMetaData(seed = 1, full = false): AccumulatedMetaData {
+  const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
+
+  return new AccumulatedMetaData(
+    tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX_META, sideEffectFromNumber, seed + 0x101),
+    tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX_META, sideEffectLinkedFromNumber, seed + 0x201),
+    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX_META, makeCallRequest, seed + 0x501),
   );
 }
 
@@ -281,24 +309,6 @@ export function makeFinalAccumulatedData(seed = 1, full = false): FinalAccumulat
  */
 export function makeNewContractData(seed = 1): NewContractData {
   return new NewContractData(makeAztecAddress(seed), makeEthAddress(seed + 1), fr(seed + 2));
-}
-
-/**
- * Creates arbitrary optionally revealed data.
- * @param seed - The seed to use for generating the optionally revealed data.
- * @returns An optionally revealed data.
- */
-export function makeOptionallyRevealedData(seed = 1): OptionallyRevealedData {
-  return new OptionallyRevealedData(
-    fr(seed),
-    new FunctionData(makeSelector(seed + 1), false, true, true),
-    fr(seed + 2),
-    makeEthAddress(seed + 3),
-    true,
-    false,
-    true,
-    false,
-  );
 }
 
 /**
@@ -359,7 +369,7 @@ export function makePublicCircuitPublicInputs(
     tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, fr, seed + 0x900),
     tupleGenerator(2, fr, seed + 0x901),
     fr(seed + 0x902),
-    makeBlockHeader(seed + 0xa00),
+    makeHeader(seed + 0xa00, undefined),
     makeAztecAddress(seed + 0xb01),
   );
 }
@@ -371,6 +381,8 @@ export function makePublicCircuitPublicInputs(
  */
 export function makeKernelPublicInputs(seed = 1, fullAccumulatedData = true): KernelCircuitPublicInputs {
   return new KernelCircuitPublicInputs(
+    makeAggregationObject(seed),
+    fr(seed + 0x100),
     makeAccumulatedData(seed, fullAccumulatedData),
     makeConstantData(seed + 0x100),
     true,
@@ -383,7 +395,13 @@ export function makeKernelPublicInputs(seed = 1, fullAccumulatedData = true): Ke
  * @returns Final ordering kernel circuit public inputs.
  */
 export function makePrivateKernelPublicInputsFinal(seed = 1): PrivateKernelPublicInputsFinal {
-  return new PrivateKernelPublicInputsFinal(makeFinalAccumulatedData(seed, true), makeConstantData(seed + 0x100));
+  return new PrivateKernelPublicInputsFinal(
+    makeAggregationObject(seed),
+    fr(seed + 0x100),
+    makeAccumulatedMetaData(seed, true),
+    makeFinalAccumulatedData(seed, true),
+    makeConstantData(seed + 0x100),
+  );
 }
 
 /**
@@ -467,6 +485,15 @@ export function makeVerificationKey(): VerificationKey {
  */
 export function makePoint(seed = 1): Point {
   return new Point(fr(seed), fr(seed + 1));
+}
+
+/**
+ * Creates an arbitrary grumpkin private key.
+ * @param seed - Seed to generate the values.
+ * @returns A GrumpkinPrivateKey.
+ */
+export function makeGrumpkinPrivateKey(seed = 1): GrumpkinPrivateKey {
+  return GrumpkinScalar.fromHighLow(fr(seed), fr(seed + 1));
 }
 
 /**
@@ -644,8 +671,11 @@ export function makePrivateCallData(seed = 1): PrivateCallData {
     publicCallStack: makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, makeCallRequest, seed + 0x20),
     proof: new Proof(Buffer.alloc(16).fill(seed + 0x50)),
     vk: makeVerificationKey(),
+    contractClassArtifactHash: fr(seed + 0x70),
+    contractClassPublicBytecodeCommitment: fr(seed + 0x71),
+    publicKeysHash: fr(seed + 0x72),
+    saltedInitializationHash: fr(seed + 0x73),
     functionLeafMembershipWitness: makeMembershipWitness(FUNCTION_TREE_HEIGHT, seed + 0x30),
-    contractLeafMembershipWitness: makeMembershipWitness(CONTRACT_TREE_HEIGHT, seed + 0x20),
     readRequestMembershipWitnesses: makeTuple(
       MAX_READ_REQUESTS_PER_CALL,
       makeReadRequestMembershipWitness,
@@ -666,7 +696,6 @@ export function makePrivateCallStackItem(seed = 1): PrivateCallStackItem {
     makeAztecAddress(seed),
     new FunctionData(makeSelector(seed + 0x1), false, true, true),
     makePrivateCircuitPublicInputs(seed + 0x10),
-    false,
   );
 }
 
@@ -689,7 +718,13 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     ),
     argsHash: fr(seed + 0x100),
     returnValues: makeTuple(RETURN_VALUES_LENGTH, fr, seed + 0x200),
+    metaHwm: fr(0),
     readRequests: makeTuple(MAX_READ_REQUESTS_PER_CALL, sideEffectFromNumber, seed + 0x300),
+    nullifierKeyValidationRequests: makeTuple(
+      MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
+      makeNullifierKeyValidationRequest,
+      seed + 0x300,
+    ),
     newCommitments: makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, sideEffectFromNumber, seed + 0x400),
     newNullifiers: makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, sideEffectLinkedFromNumber, seed + 0x500),
     privateCallStackHashes: makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x600),
@@ -700,7 +735,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     unencryptedLogsHash: makeTuple(NUM_FIELDS_PER_SHA256, fr, seed + 0xa00),
     encryptedLogPreimagesLength: fr(seed + 0xb00),
     unencryptedLogPreimagesLength: fr(seed + 0xc00),
-    blockHeader: makeBlockHeader(seed + 0xd00),
+    historicalHeader: makeHeader(seed + 0xd00, undefined),
     contractDeploymentData: makeContractDeploymentData(seed + 0xe00),
     chainId: fr(seed + 0x1400),
     version: fr(seed + 0x1500),
@@ -731,9 +766,23 @@ export function makeContractDeploymentData(seed = 1) {
  */
 export function makeGlobalVariables(seed = 1, blockNumber: number | undefined = undefined): GlobalVariables {
   if (blockNumber !== undefined) {
-    return new GlobalVariables(fr(seed), fr(seed + 1), fr(blockNumber), fr(seed + 3));
+    return new GlobalVariables(
+      fr(seed),
+      fr(seed + 1),
+      fr(blockNumber),
+      fr(seed + 3),
+      EthAddress.fromField(fr(seed + 4)),
+      AztecAddress.fromField(fr(seed + 5)),
+    );
   }
-  return new GlobalVariables(fr(seed), fr(seed + 1), fr(seed + 2), fr(seed + 3));
+  return new GlobalVariables(
+    fr(seed),
+    fr(seed + 1),
+    fr(seed + 2),
+    fr(seed + 3),
+    EthAddress.fromField(fr(seed + 4)),
+    AztecAddress.fromField(fr(seed + 5)),
+  );
 }
 
 /**
@@ -862,18 +911,17 @@ export function makeRootRollupInputs(seed = 0, globalVariables?: GlobalVariables
 /**
  * Makes root rollup public inputs.
  * @param seed - The seed to use for generating the root rollup public inputs.
- * @param blockNumber - The block number to use for generating the root rollup public inputs.
- * if blockNumber is undefined, it will be set to seed + 2.
+ * @param blockNumber - The block number to use in the global variables of a header.
  * @returns A root rollup public inputs.
  */
 export function makeRootRollupPublicInputs(
   seed = 0,
-  globalVariables: GlobalVariables | undefined = undefined,
+  blockNumber: number | undefined = undefined,
 ): RootRollupPublicInputs {
   return RootRollupPublicInputs.from({
     aggregationObject: makeAggregationObject(seed),
     archive: makeAppendOnlyTreeSnapshot(seed + 0x100),
-    header: makeHeader(seed + 0x200, globalVariables),
+    header: makeHeader(seed + 0x200, blockNumber),
     l1ToL2MessagesHash: [new Fr(3n), new Fr(4n)],
   });
 }
@@ -881,12 +929,12 @@ export function makeRootRollupPublicInputs(
 /**
  * Makes header.
  */
-export function makeHeader(seed = 0, globalVariables: GlobalVariables | undefined): Header {
+export function makeHeader(seed = 0, blockNumber: number | undefined = undefined): Header {
   return new Header(
     makeAppendOnlyTreeSnapshot(seed + 0x100),
-    randomBytes(NUM_BYTES_PER_SHA256),
-    makeStateReference(seed + 0x200),
-    globalVariables ?? makeGlobalVariables((seed += 0x100)),
+    toBufferBE(BigInt(seed + 0x200), NUM_BYTES_PER_SHA256),
+    makeStateReference(seed + 0x300),
+    makeGlobalVariables((seed += 0x400), blockNumber),
   );
 }
 
@@ -1043,6 +1091,40 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
     archiveRootMembershipWitness,
     constants,
   });
+}
+
+export function makeContractClassPublic(seed = 0): ContractClassPublic {
+  const artifactHash = fr(seed + 1);
+  const publicFunctions = makeTuple(3, makeContractClassPublicFunction, seed + 2);
+  const privateFunctionsRoot = fr(seed + 3);
+  const packedBytecode = packBytecode(publicFunctions);
+  const publicBytecodeCommitment = computePublicBytecodeCommitment(packedBytecode);
+  const id = computeContractClassId({ artifactHash, privateFunctionsRoot, publicBytecodeCommitment });
+  return {
+    id,
+    artifactHash,
+    packedBytecode,
+    privateFunctionsRoot,
+    publicFunctions,
+    version: 1,
+  };
+}
+
+function makeContractClassPublicFunction(seed = 0): PublicFunction {
+  return {
+    selector: FunctionSelector.fromField(fr(seed + 1)),
+    bytecode: makeBytes(100, seed + 2),
+    isInternal: false,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function makeContractClassPrivateFunction(seed = 0): PrivateFunction {
+  return {
+    selector: FunctionSelector.fromField(fr(seed + 1)),
+    vkHash: fr(seed + 2),
+    isInternal: false,
+  };
 }
 
 /**

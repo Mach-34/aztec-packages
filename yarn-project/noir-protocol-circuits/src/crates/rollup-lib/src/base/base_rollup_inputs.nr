@@ -293,6 +293,7 @@ impl BaseRollupInputs {
 
         let new_contracts = kernel_data.public_inputs.end.new_contracts;
         calldata_hash_inputs[offset] = new_contracts[0].contract_address.to_field();
+        // TODO(#3938): make portal address 20 bytes here when updating the hashing
         calldata_hash_inputs[offset + 1] = new_contracts[0].portal_contract_address.to_field();
 
         offset += MAX_NEW_CONTRACTS_PER_TX * 2;
@@ -338,8 +339,8 @@ impl BaseRollupInputs {
         let archive_root = self.constants.last_archive.root;
 
         // Rebuild the block hash
-        let block_header = self.kernel_data.public_inputs.constants.block_header;
-        let previous_block_hash = block_header.block_hash();
+        let header = self.kernel_data.public_inputs.constants.historical_header;
+        let previous_block_hash = header.hash();
 
         let previous_block_hash_witness = self.archive_root_membership_witness;
 
@@ -355,7 +356,7 @@ impl BaseRollupInputs {
     // TODO(Kev): This aggregate_proof method is duplicated in a lot of places
     fn aggregate_proofs(self) -> AggregationObject {
         // TODO: for now we simply return the aggregation object from the first proof
-        self.kernel_data.public_inputs.end.aggregation_object
+        self.kernel_data.public_inputs.aggregation_object
     }
 }
 
@@ -597,7 +598,7 @@ mod tests {
         abis::side_effect::SideEffect,
         tests::previous_kernel_data_builder::PreviousKernelDataBuilder,
         address::{AztecAddress, EthAddress},
-        utils::bounded_vec::BoundedVec,
+        contract_class::ContractClassId,
         utils::uint256::U256,
         partial_state_reference::PartialStateReference,
     };
@@ -648,7 +649,7 @@ mod tests {
 
         for i in 0..MAX_PUBLIC_DATA_WRITES_PER_TEST {
             if i < (public_data_writes.len() as u64) {
-                let (_, leaf): (u64, PublicDataTreeLeaf) = public_data_writes.get_unchecked(i as Field);
+                let leaf = public_data_writes.get_unchecked(i as Field).1;
 
                 kernel_data.public_inputs.end.public_data_update_requests[i] = PublicDataUpdateRequest {
                     leaf_slot : leaf.slot,
@@ -738,7 +739,7 @@ mod tests {
             let _nullifier = builder.end.new_nullifiers.pop();
             inputs.kernel_data = builder.is_public();
   
-            inputs.pre_existing_blocks[0] = inputs.kernel_data.block_header.block_hash();
+            inputs.pre_existing_blocks[0] = inputs.kernel_data.historical_header.hash();
 
             inputs
         }
@@ -949,7 +950,7 @@ mod tests {
         let new_contract = NewContractData {
             contract_address: AztecAddress::from_field(1),
             portal_contract_address: EthAddress::from_field(2),
-            function_tree_root: 3
+            contract_class_id: ContractClassId::from_field(3)
         };
 
         let mut builder = BaseRollupInputsBuilder::new();
@@ -978,7 +979,7 @@ mod tests {
         let new_contract = NewContractData {
             contract_address: AztecAddress::from_field(1),
             portal_contract_address: EthAddress::from_field(2),
-            function_tree_root: 3
+            contract_class_id: ContractClassId::from_field(3)
         };
 
         let mut builder = BaseRollupInputsBuilder::new();
