@@ -278,7 +278,6 @@ export interface PXE {
     args: PackedArguments,
     selector: FunctionSelector,
     executionNotes: NoteAndSlot[],
-    nullified: boolean[],
     msgSender: AztecAddress,
     targetContractAddress: AztecAddress,
     sideEffectCounter: number,

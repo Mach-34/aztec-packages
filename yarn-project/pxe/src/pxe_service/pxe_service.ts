@@ -746,18 +746,17 @@ export class PXEService implements PXE {
     args: PackedArguments,
     selector: FunctionSelector,
     executionNotes: NoteAndSlot[],
-    nullified: boolean[],
     msgSender: AztecAddress,
     targetContractAddress: AztecAddress,
     sideEffectCounter: number,
     cachedSimulations: AppExecutionResult[] = [],
   ): Promise<AppExecutionResult> {
     try {
+      this.log('Simulating an app circuit...');
       const result = await this.simulator.runNested(
         args,
         selector,
         executionNotes,
-        nullified,
         msgSender,
         targetContractAddress,
         sideEffectCounter,

@@ -71,18 +71,20 @@ export class AcirSimulator {
    * @dev no support for auth witness
    * @dev expects all logs to be issued by same contract
    *
-   * @param args
-   * @param executionNotes
-   * @param targetContractAddress
-   * @param functionSelector
-   * @param argsHash
-   * @param sideEffectCounter
+   * @param args - packed args used when calling this function
+   * @param functionSelector - function selector of the target function to execute
+   * @param executionNotes - non-nullified notes that can be used in the execution
+   * @param msgSender - address of the contract calling this function
+   * @param targetContractAddress - address of the contract that has the to execute
+   * @param sideEffectCounter - counter to start at for side effect tracking
+   * @param cachedSimulations - optional pre-executed simulations of child functions to provide when called by this function
+   * 
+   * @returns The result of the execution.
    */
   public async runNested(
     args: PackedArguments,
     functionSelector: FunctionSelector,
     executionNotes: NoteAndSlot[],
-    nullified: boolean[],
     msgSender: AztecAddress,
     targetContractAddress: AztecAddress,
     sideEffectCounter: number,
@@ -123,11 +125,6 @@ export class AcirSimulator {
       cachedSimulations,
     );
 
-    // build note cache
-    if (executionNotes.length !== nullified.length) {
-      throw new Error('Nullifier vector length must match note vector length');
-    }
-    
     for (let i = 0; i < executionNotes.length; i++) {
       // todo: cache nullifiers and pass current note instead of notifying of nullification for all
       const note = executionNotes[i];
@@ -135,18 +132,7 @@ export class AcirSimulator {
       const innerNoteHash = await this.computeInnerNoteHash(targetContractAddress, note.storageSlot, note.note);
       // add to cache
       context.notifyCreatedNote(note.storageSlot, note.note.items, innerNoteHash);
-      // nullify if necessary
-      if (nullified[i]) {
-        const innerNullifier = await this.computeInnerNullifier(
-          targetContractAddress,
-          Fr.ZERO,
-          note.storageSlot,
-          note.note,
-        );
-        await context.notifyNullifiedNote(innerNullifier, innerNoteHash);
-      }
     }
-
     try {
       const executionResult = await executePrivateFunction(context, targetArtifact, targetContractAddress, targetFunctionData);
       return executionResult;
